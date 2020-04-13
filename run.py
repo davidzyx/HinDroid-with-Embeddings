@@ -1,7 +1,9 @@
 import sys
 import json
 
-from src import *
+from src.utils import prep_dir, clean_raw, clean_features, clean_processed
+from src.data.get_data import get_data
+from src.features.build_features import build_features
 
 
 DATA_PARAMS = 'config/data-params.json'
@@ -24,14 +26,19 @@ def main(targets):
     else:
         return
 
+    prep_dir(**cfg)
+
     if 'clean' in targets:
+        clean_raw(**cfg)
+        clean_features(**cfg)
+        clean_processed(**cfg)
         return
 
     if 'ingest' in targets:
-        pass
+        get_data(**cfg)
 
     if 'process' in targets:
-        pass
+        build_features(**cfg)
 
     if 'model' in targets:
         pass
