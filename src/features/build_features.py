@@ -26,8 +26,9 @@ def process_app(app_dir, out_dir):
         app.info.to_csv(out_path, index=None)
         package = app.package
         del app
-    except:
+    except Exception as e:
         print(f'Error extracting {app_dir}')
+        print(e)
         return None
     return package, out_path
 
@@ -37,7 +38,7 @@ def extract_save(in_dir, out_dir, class_i, nproc):
 
     print(f'Extracting features for {class_i}')
 
-    meta = p_umap(process_app, app_dirs, out_dir, num_cpus=nproc, file=sys.stdout)
+    meta = p_umap(process_app, app_dirs, [out_dir for i in range(len(app_dirs))], num_cpus=nproc, file=sys.stdout)
     meta = [i for i in meta if i is not None]
     packages = [t[0]for t in meta]
     csv_paths = [t[1]for t in meta]
