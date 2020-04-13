@@ -1,0 +1,29 @@
+{
+    "nproc": 2,
+    "data_dir": "data",
+    "data_subdirs": {
+        "raw": "raw",
+        "interim": "interim",
+        "processed": "processed"
+    },
+    "data_classes": {
+        "class0": {
+            "stage": "apk",
+            "external_dir": "test/comics",
+            "external_structure": "flat",
+            "sampling": {
+                "method": "random",
+                "n": 10
+            }
+        },
+        "class1": {
+            "stage": "apk",
+            "external_dir": "test/communication",
+            "external_structure": "flat",
+            "sampling": {
+                "method": "random",
+                "n": 10
+            }
+        }
+    }
+}
