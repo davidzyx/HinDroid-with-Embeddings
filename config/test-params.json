@@ -9,7 +9,7 @@
     "data_classes": {
         "class0": {
             "stage": "apk",
-            "external_dir": "test/comics",
+            "external_dir": "test-data/comics",
             "external_structure": "flat",
             "sampling": {
                 "method": "random",
@@ -18,7 +18,7 @@
         },
         "class1": {
             "stage": "apk",
-            "external_dir": "test/communication",
+            "external_dir": "test-data/communication",
             "external_structure": "flat",
             "sampling": {
                 "method": "random",
