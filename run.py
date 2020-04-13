@@ -26,6 +26,8 @@ def main(targets):
     else:
         return
 
+    prep_dir(**cfg)
+
     if 'clean' in targets:
         clean_raw(**cfg)
         clean_features(**cfg)
