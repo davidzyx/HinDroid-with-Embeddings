@@ -65,5 +65,5 @@ def build_features(**config):
     }, index=flatten(labels.values()))
     meta.to_csv(os.path.join(utils.PROC_DIR, 'meta.csv'))
 
-    # hin = HINProcess(csvs, utils.PROC_DIR, nproc=nproc)
-    # hin.run()
+    hin = HINProcess(csvs, utils.PROC_DIR, nproc=nproc)
+    hin.run()

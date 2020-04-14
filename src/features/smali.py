@@ -122,7 +122,7 @@ class HINProcess():
             A_cols.append(bag_of_API)
 
         A_mat = np.array(A_cols).T  # shape: (# of apps, # of unique APIs)
-        A_mat = sparse.csr_matrix(A_mat)
+        # A_mat = sparse.csr_matrix(A_mat)
         return A_mat
 
     def _prep_graph_B(info):
@@ -172,8 +172,18 @@ class HINProcess():
         sparse_arr.setdiag(1)
         return sparse_arr
 
-    def construct_graph_BP(self, Bs, Ps):
+    def construct_graph_BP(self, Bs, Ps, tr_apis):
         shape = (len(self.API_uid), len(self.API_uid))
+        for i in range(len(Bs)):
+            B = Bs[i]
+            P = Ps[i]
+
+            # Select pairs of connections where both APIs are in training set
+            mask_B = np.nonzero(np.isin(B, tr_apis).sum(axis=0) == 2)[0]
+            B = B[:, mask_B]
+            mask_P = np.nonzero(np.isin(P, tr_apis).sum(axis=0) == 2)[0]
+            P = P[:, mask_P]
+
         print('Constructing B', file=sys.stdout)
         B_mat = HINProcess._build_coo(Bs, shape).tocsc()
         print('Constructing P', file=sys.stdout)
@@ -183,9 +193,12 @@ class HINProcess():
     def save_matrices(self):
         print('Saving matrices', file=sys.stdout)
         path = self.out_dir
-        sparse.save_npz(os.path.join(path, 'A'), self.A_mat)
-        sparse.save_npz(os.path.join(path, 'B'), self.B_mat)
-        sparse.save_npz(os.path.join(path, 'P'), self.P_mat)
+        sparse.save_npz(os.path.join(path, 'A_tr'), self.A_mat_tr)
+        sparse.save_npz(os.path.join(path, 'A_tst'), self.A_mat_tst)
+        sparse.save_npz(os.path.join(path, 'B_tr'), self.B_mat_tr)
+        sparse.save_npz(os.path.join(path, 'B_tr'), self.B_mat_tr)
+        sparse.save_npz(os.path.join(path, 'P_tr'), self.P_mat_tr)
+        sparse.save_npz(os.path.join(path, 'P_tst'), self.P_mat_tst)
 
     def save_info(self):
         print('Saving infos', file=sys.stdout)
@@ -195,9 +208,36 @@ class HINProcess():
         s_API.to_csv(os.path.join(path, 'APIs.csv'))
         s_APP.to_csv(os.path.join(path, 'APPs.csv'))
 
+    def shuffle_split(self):
+        len_apps = len(self.APP_uid)
+        shfld_apps = np.random.choice(np.arange(len_apps), len_apps, replace=False)
+        tr_apps = shfld_apps[:len_apps // 2]
+        tst_apps = shfld_apps[len_apps // 2:]
+        tr_apis = np.nonzero(self.A_mat[tr_apps, :].sum(axis=0))[0]
+        print(f'{len(self.API_uid)} overall APIs, {len(tr_apis)} APIs masked in train')
+        return tr_apps, tst_apps, tr_apis
+
+    def train_test_split(self, Bs, Ps):
+        tr_apps, tst_apps, tr_apis = self.shuffle_split()
+
+        # len(APIs) are of entire dataset, but masked in training
+        self.A_mat = sparse.csr_matrix(self.A_mat)
+        self.A_mat_tr = self.A_mat[tr_apps, :]
+        self.A_mat_tst = self.A_mat[tst_apps, :]
+        Bs_tr = [B for i, B in enumerate(Bs) if i in tr_apps]
+        Bs_tst = [B for i, B in enumerate(Bs) if i in tst_apps]
+        Ps_tr = [P for i, P in enumerate(Ps) if i in tr_apps]
+        Ps_tst = [P for i, P in enumerate(Ps) if i in tst_apps]
+
+        return tr_apps, tst_apps, tr_apis, Bs_tr, Bs_tst, Ps_tr, Ps_tst
+
     def run(self):
         self.A_mat = self.construct_graph_A()
         Bs, Ps = self.prep_graph_BP()
-        self.B_mat, self.P_mat = self.construct_graph_BP(Bs, Ps)
+
+        tr_apps, tst_apps, tr_apis, Bs_tr, Bs_tst, Ps_tr, Ps_tst = \
+            self.train_test_split(Bs, Ps)
+        self.B_mat_tr, self.P_mat_tr = self.construct_graph_BP(Bs_tr, Ps_tr, tr_apis)
+        self.B_mat_tst, self.P_mat_tst = self.construct_graph_BP(Bs_tst, Ps_tst, tr_apis)
         self.save_matrices()
-        self.save_info()
+        # self.save_info()
