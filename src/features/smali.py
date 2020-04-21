@@ -179,6 +179,7 @@ class HINProcess():
             P = Ps[i]
 
             # Select pairs of connections where both APIs are in training set
+            # Filtering
             mask_B = np.nonzero(np.isin(B, tr_apis).sum(axis=0) == 2)[0]
             B = B[:, mask_B]
             mask_P = np.nonzero(np.isin(P, tr_apis).sum(axis=0) == 2)[0]
@@ -193,10 +194,11 @@ class HINProcess():
     def save_matrices(self):
         print('Saving matrices', file=sys.stdout)
         path = self.out_dir
+        sparse.save_npz(os.path.join(path, 'A_full'), self.A_mat_full)
         sparse.save_npz(os.path.join(path, 'A_tr'), self.A_mat_tr)
         sparse.save_npz(os.path.join(path, 'A_tst'), self.A_mat_tst)
         sparse.save_npz(os.path.join(path, 'B_tr'), self.B_mat_tr)
-        sparse.save_npz(os.path.join(path, 'B_tr'), self.B_mat_tr)
+        sparse.save_npz(os.path.join(path, 'B_tst'), self.B_mat_tr)
         sparse.save_npz(os.path.join(path, 'P_tr'), self.P_mat_tr)
         sparse.save_npz(os.path.join(path, 'P_tst'), self.P_mat_tst)
 
@@ -211,8 +213,9 @@ class HINProcess():
     def shuffle_split(self):
         len_apps = len(self.APP_uid)
         shfld_apps = np.random.choice(np.arange(len_apps), len_apps, replace=False)
-        tr_apps = shfld_apps[:len_apps // 2]
-        tst_apps = shfld_apps[len_apps // 2:]
+        cutoff = int(len_apps * 2 / 3)
+        tr_apps = shfld_apps[:cutoff]
+        tst_apps = shfld_apps[cutoff:]
         tr_apis = np.nonzero(self.A_mat[tr_apps, :].sum(axis=0))[0]
         print(f'{len(self.API_uid)} overall APIs, {len(tr_apis)} APIs masked in train')
         return tr_apps, tst_apps, tr_apis
@@ -221,9 +224,13 @@ class HINProcess():
         tr_apps, tst_apps, tr_apis = self.shuffle_split()
 
         # len(APIs) are of entire dataset, but masked in training
+        self.A_mat_full = sparse.csr_matrix(self.A_mat)
+        excluded_apis = list(set(range(self.A_mat.shape[1])) - set(tr_apis))
+        self.A_mat[:, excluded_apis] = 0
         self.A_mat = sparse.csr_matrix(self.A_mat)
         self.A_mat_tr = self.A_mat[tr_apps, :]
         self.A_mat_tst = self.A_mat[tst_apps, :]
+
         Bs_tr = [B for i, B in enumerate(Bs) if i in tr_apps]
         Bs_tst = [B for i, B in enumerate(Bs) if i in tst_apps]
         Ps_tr = [P for i, P in enumerate(Ps) if i in tr_apps]
