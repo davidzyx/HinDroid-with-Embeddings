@@ -1,0 +1,35 @@
+{
+    "nproc": 4,
+    "data_dir": "data",
+    "data_subdirs": {
+        "raw": "raw",
+        "interim": "interim",
+        "processed": "processed"
+    },
+    "data_classes": {
+        "class0": {
+            "stage": "apkpure",
+            "apkpure_preload_metadata_fp": false,
+            "sampling": {
+                "method": "category",
+                "category_targets": {
+                    "communication": 100,
+                    "tools": 100,
+                    "comics": 100,
+                    "art_and_design": 100,
+                    "beauty": 100
+                }
+            }
+        },
+        "class1": {
+            "stage": "smali",
+            "origin": "external",
+            "external_dir": "/datasets/dsc180a-wi20-public/Malware/amd_data_smali",
+            "external_structure": "by_category_variety",
+            "sampling": {
+                "method": "random",
+                "n": 500
+            }
+        }
+    }
+}
