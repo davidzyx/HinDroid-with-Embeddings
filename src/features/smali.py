@@ -194,13 +194,13 @@ class HINProcess():
     def save_matrices(self):
         print('Saving matrices', file=sys.stdout)
         path = self.out_dir
-        sparse.save_npz(os.path.join(path, 'A_full'), self.A_mat_full)
+        # sparse.save_npz(os.path.join(path, 'A_full'), self.A_mat_full)
         sparse.save_npz(os.path.join(path, 'A_tr'), self.A_mat_tr)
         sparse.save_npz(os.path.join(path, 'A_tst'), self.A_mat_tst)
         sparse.save_npz(os.path.join(path, 'B_tr'), self.B_mat_tr)
-        sparse.save_npz(os.path.join(path, 'B_tst'), self.B_mat_tr)
+        # sparse.save_npz(os.path.join(path, 'B_tst'), self.B_mat_tr)
         sparse.save_npz(os.path.join(path, 'P_tr'), self.P_mat_tr)
-        sparse.save_npz(os.path.join(path, 'P_tst'), self.P_mat_tst)
+        # sparse.save_npz(os.path.join(path, 'P_tst'), self.P_mat_tst)
 
     def save_info(self):
         print('Saving infos', file=sys.stdout)
@@ -232,19 +232,24 @@ class HINProcess():
         self.A_mat_tst = self.A_mat[tst_apps, :]
 
         Bs_tr = [B for i, B in enumerate(Bs) if i in tr_apps]
-        Bs_tst = [B for i, B in enumerate(Bs) if i in tst_apps]
+        # Bs_tst = [B for i, B in enumerate(Bs) if i in tst_apps]
         Ps_tr = [P for i, P in enumerate(Ps) if i in tr_apps]
-        Ps_tst = [P for i, P in enumerate(Ps) if i in tst_apps]
+        # Ps_tst = [P for i, P in enumerate(Ps) if i in tst_apps]
 
-        return tr_apps, tst_apps, tr_apis, Bs_tr, Bs_tst, Ps_tr, Ps_tst
+        return tr_apps, tst_apps, tr_apis, Bs_tr, Ps_tr
+        # return tr_apps, tst_apps, tr_apis, Bs_tr, Bs_tst, Ps_tr, Ps_tst
 
     def run(self):
         self.A_mat = self.construct_graph_A()
         Bs, Ps = self.prep_graph_BP()
 
-        tr_apps, tst_apps, tr_apis, Bs_tr, Bs_tst, Ps_tr, Ps_tst = \
+        tr_apps, tst_apps, tr_apis, Bs_tr, Ps_tr = \
             self.train_test_split(Bs, Ps)
+        self.tr_apps = tr_apps
+        self.tst_apps = tst_apps
+
         self.B_mat_tr, self.P_mat_tr = self.construct_graph_BP(Bs_tr, Ps_tr, tr_apis)
-        self.B_mat_tst, self.P_mat_tst = self.construct_graph_BP(Bs_tst, Ps_tst, tr_apis)
+        # self.B_mat_tst, self.P_mat_tst = self.construct_graph_BP(Bs_tst, Ps_tst, tr_apis)
+
+
         self.save_matrices()
-        # self.save_info()

@@ -52,10 +52,17 @@ def build_features(**config):
 
     labels = {}
     csvs = []
+
     for cls_i in utils.ITRM_CLASSES_DIRS.keys():
         raw_dir = utils.RAW_CLASSES_DIRS[cls_i]
         itrm_dir = utils.ITRM_CLASSES_DIRS[cls_i]
+
         packages, csv_paths = extract_save(raw_dir, itrm_dir, cls_i, nproc)
+
+        # Replace above line with these commented lines if you have ran `process` before
+        # csv_paths = glob(f'{itrm_dir}/*.csv')
+        # packages = [p[:-4] for p in csv_paths]
+
         labels[cls_i] = packages
         csvs += csv_paths
 
@@ -67,3 +74,8 @@ def build_features(**config):
 
     hin = HINProcess(csvs, utils.PROC_DIR, nproc=nproc)
     hin.run()
+
+    meta_train = meta.iloc[hin.tr_apps, :]
+    meta_tst = meta.iloc[hin.tst_apps, :]
+    meta_train.to_csv(os.path.join(utils.PROC_DIR, 'meta_tr.csv'))
+    meta_tst.to_csv(os.path.join(utils.PROC_DIR, 'meta_tst.csv'))
