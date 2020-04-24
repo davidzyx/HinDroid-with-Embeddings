@@ -26,8 +26,9 @@ def process_app(app_dir, out_dir):
         app.info.to_csv(out_path, index=None)
         package = app.package
         del app
-    except:
+    except Exception as e:
         print(f'Error extracting {app_dir}')
+        print(e)
         return None
     return package, out_path
 
@@ -37,7 +38,7 @@ def extract_save(in_dir, out_dir, class_i, nproc):
 
     print(f'Extracting features for {class_i}')
 
-    meta = p_umap(process_app, app_dirs, out_dir, num_cpus=nproc, file=sys.stdout)
+    meta = p_umap(process_app, app_dirs, [out_dir for i in range(len(app_dirs))], num_cpus=nproc, file=sys.stdout)
     meta = [i for i in meta if i is not None]
     packages = [t[0]for t in meta]
     csv_paths = [t[1]for t in meta]
@@ -51,10 +52,17 @@ def build_features(**config):
 
     labels = {}
     csvs = []
+
     for cls_i in utils.ITRM_CLASSES_DIRS.keys():
         raw_dir = utils.RAW_CLASSES_DIRS[cls_i]
         itrm_dir = utils.ITRM_CLASSES_DIRS[cls_i]
+
         packages, csv_paths = extract_save(raw_dir, itrm_dir, cls_i, nproc)
+
+        # Replace above line with these commented lines if you have ran `process` before
+        # csv_paths = glob(f'{itrm_dir}/*.csv')
+        # packages = [p[:-4] for p in csv_paths]
+
         labels[cls_i] = packages
         csvs += csv_paths
 
@@ -64,5 +72,10 @@ def build_features(**config):
     }, index=flatten(labels.values()))
     meta.to_csv(os.path.join(utils.PROC_DIR, 'meta.csv'))
 
-    # hin = HINProcess(csvs, utils.PROC_DIR, nproc=nproc)
-    # hin.run()
+    hin = HINProcess(csvs, utils.PROC_DIR, nproc=nproc)
+    hin.run()
+
+    meta_train = meta.iloc[hin.tr_apps, :]
+    meta_tst = meta.iloc[hin.tst_apps, :]
+    meta_train.to_csv(os.path.join(utils.PROC_DIR, 'meta_tr.csv'))
+    meta_tst.to_csv(os.path.join(utils.PROC_DIR, 'meta_tst.csv'))
