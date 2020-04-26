@@ -2,6 +2,8 @@ from gensim import utils
 import gensim.models
 import numpy as np
 from scipy import sparse
+from sklearn.linear_model import LinearRegression
+from tqdm import tqdm
 
 from sklearn.manifold import TSNE                   # final reduction
 
@@ -10,46 +12,122 @@ class word2vec(object):
         self.matrix_path = matrix_path
         self.corpus_path = corpus_path
                 
-    def generate_matrix(self):
+    def load_matrix(self):
         
-        train_A = sparse.load_npz(self.matrix_path + 'train_A.npz').tocsr()
-        train_B = sparse.load_npz(self.matrix_path + 'train_B.npz').tocsc()
-        train_P = sparse.load_npz(self.matrix_path + 'train_P.npz').tocsc()
-        test_A = sparse.load_npz(self.matrix_path + 'test_A.npz').tocsr()
-        train_A_csc = train_A.tocsc(copy=True)
-        
-        return train_A, train_B, train_P, test_A, train_A_csc 
-        
+        self.train_A = sparse.load_npz(self.matrix_path + '/train_A.npz').tocsr()
+        self.train_B = sparse.load_npz(self.matrix_path + '/train_B.npz').tocsc()
+        self.train_P = sparse.load_npz(self.matrix_path + '/train_P.npz').tocsc()
+        self.test_A = sparse.load_npz(self.matrix_path + '/test_A.npz').tocsr()
+        self.train_A_csc = self.train_A.tocsc(copy=True)        
+    
+    def generate_corpus(self, metapath, num_doc, walk_length):
+        if metapath == "ABPBA":
+            corpus_function = self.ABPBA(length=walk_length)
+            
+        if metapath == "ABA":
+            corpus_function = self.ABA(length=walk_length)
+                
+        if metapath == "APA":
+            corpus_function = self.APA(length=walk_length)
+            
+        f = open(self.corpus_path, 'w')
+        for _ in tqdm(range(num_doc)):
+            f.write(next(corpus_function) + '\n')
+        f.close()
+           
     def create_model(self):
         sentences = MyCorpus(self.corpus_path)
-        model = gensim.models.Word2Vec(sentences=sentences, min_count=1, size=200)
-        return model
+        self.model = gensim.models.Word2Vec(sentences=sentences, min_count=1, size=200)
     
-    def ABPBA(self):
+    def ABPBA(self, length=5000):
         while True:
-            app_i = np.random.choice(np.arange(A.shape[0]))
-            api_i = np.random.choice(np.nonzero(A_csr[app_i])[1])
-            api_bi = np.random.choice(np.nonzero(B[:, api_i])[0])
-            api_p = np.random.choice(np.nonzero(P[:, api_bi])[0])
-            api_bj = np.random.choice(np.nonzero(B[:, api_p])[0])
-            app_j = np.random.choice(np.nonzero(A_csc[:, api_bj])[0])
 
-            yield f'app_{app_i} api_{api_i} api_{api_bi} api_{api_p} api_{api_bj} app_{app_j}'
+            app = np.random.choice(np.arange(self.train_A.shape[0]))
 
+            path = f'app_{app}'
 
-    def ABA(self):
+            for i in range(length):
+
+                api_i = np.random.choice(np.nonzero(self.train_A[app])[1])
+                api_bi = np.random.choice(np.nonzero(self.train_B[:, api_i])[0])
+                api_p = np.random.choice(np.nonzero(self.train_P[:, api_bi])[0])
+                api_bj = np.random.choice(np.nonzero(self.train_B[:, api_p])[0])
+                app = np.random.choice(np.nonzero(self.train_A_csc[:, api_bj])[0])
+
+                path += f' api_{api_i} api_{api_bi} api_{api_p} api_{api_bj} app_{app}'
+
+            yield path
+            
+    def ABA(self, length=5000):
         while True:
-            app_i = np.random.choice(np.arange(A.shape[0]))
-            api_i = np.random.choice(np.nonzero(A_csr[app_i])[1])
-            api_bi = np.random.choice(np.nonzero(B[:, api_i])[0])
-            app_j = np.random.choice(np.nonzero(A_csc[:, api_bi])[0])
 
-            yield f'app_{app_i} api_{api_i} api_{api_bi} app_{app_j}'
+            app = np.random.choice(np.arange(self.train_A.shape[0]))
+
+            path = f'app_{app}'
+
+            for i in range(length):
+
+                api_i = np.random.choice(np.nonzero(self.train_A[app])[1])
+                api_b = np.random.choice(np.nonzero(self.train_B[:, api_i])[0])
+                app = np.random.choice(np.nonzero(self.train_A_csc[:, api_b])[0])
+
+                path += f' api_{api_i} api_{api_b} app_{app}'
+
+            yield path
+
+    def APA(self, length=5000):
+        while True:
+            app = np.random.choice(np.arange(self.train_A.shape[0]))
+
+            path = f'app_{app}'
+
+            for i in range(length):
+
+                api_i = np.random.choice(np.nonzero(self.train_A[app])[1])
+                api_p = np.random.choice(np.nonzero(self.train_P[:, api_i])[0])
+                app = np.random.choice(np.nonzero(self.train_A_csc[:, api_p])[0])
+
+                path += f' api_{api_i} api_{api_p} app_{app}'
+
+            yield path
     
-    def plot(model):
-        x_vals, y_vals, labels = reduce_dimensions(model)
+    def plot(self):
+        x_vals, y_vals, labels = reduce_dimensions(self.model)
 
         plot_with_plotly(x_vals, y_vals, labels)
+        
+    # Predict embeddings for application in testing set
+    def train_predict(self):
+        X = []
+        Y = []
+        for j in range(self.train_A.shape[0]):
+            indexes = np.nonzero((self.train_A[j]).toarray()[0])[0]
+            all_api = self.model.wv.vocab.keys()
+            matrix = np.zeros(100)
+            for i in indexes:
+                element = 'api_' + str(i)
+                if element in all_api:
+                    matrix += self.model.wv[element]
+            matrix /= len(all_api)
+            X.append(matrix)
+            Y.append(model.wv['app_' + str(j)])
+                       
+        test_X = []
+        for j in range(self.test_A.shape[0]):
+            indexes = np.nonzero((self.test_A[j]).toarray()[0])[0]
+            all_api = self.model.wv.vocab.keys()
+            matrix = np.zeros(100)
+            for i in indexes:
+                element = 'api_' + str(i)
+                if element in all_api:
+                    matrix += self.model.wv[element]
+            matrix /= len(all_api)
+            test_X.append(matrix)
+                       
+        regressor = LinearRegression()
+        regressor.fit(X, Y)
+        return regressor.predict(test_X)
+                       
 
 class MyCorpus(object):
     """An interator that yields sentences (lists of str)."""
@@ -125,3 +203,6 @@ def plot_with_matplotlib(x_vals, y_vals, labels):
     for i in selected_indices:
         plt.annotate(labels[i], (x_vals[i], y_vals[i]))
     plt.show()
+    
+def cosine(u, v):
+    return np.dot(u, v)/(np.linalg.norm(u)* np.linalg.norm(v))
