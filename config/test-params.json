@@ -13,7 +13,7 @@
             "external_structure": "flat",
             "sampling": {
                 "method": "random",
-                "n": 10
+                "n": 3
             }
         },
         "class1": {
@@ -22,7 +22,7 @@
             "external_structure": "flat",
             "sampling": {
                 "method": "random",
-                "n": 10
+                "n": 2
             }
         }
     }

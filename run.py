@@ -20,6 +20,13 @@ def load_params(fp):
 
 def main(targets):
 
+    if 'test' in targets:
+        cfg = load_params(TEST_PARAMS)
+        prep_dir(**cfg)
+        get_data(**cfg)
+        build_features(**cfg)
+        return
+
     if 'data' in targets:
         cfg = load_params(DATA_PARAMS)
     elif 'data-test' in targets:
