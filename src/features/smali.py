@@ -83,10 +83,11 @@ class SmaliApp():
 
 class HINProcess():
 
-    def __init__(self, csvs, out_dir, nproc=4):
+    def __init__(self, csvs, out_dir, nproc=4, test_size=0.67):
         self.csvs = csvs
         self.out_dir = out_dir
         self.nproc = nproc
+        self.test_size = test_size
         self.packages = [os.path.basename(csv)[:-4] for csv in csvs]
         print('Processing CSVs')
         self.infos = p_map(HINProcess.csv_proc, csvs, num_cpus=nproc)
@@ -213,7 +214,8 @@ class HINProcess():
     def shuffle_split(self):
         len_apps = len(self.APP_uid)
         shfld_apps = np.random.choice(np.arange(len_apps), len_apps, replace=False)
-        cutoff = int(len_apps * 2 / 3)
+        cutoff = int(len_apps * self.test_size)
+        assert cutoff != len_apps
         tr_apps = shfld_apps[:cutoff]
         tst_apps = shfld_apps[cutoff:]
         tr_apis = np.nonzero(self.A_mat[tr_apps, :].sum(axis=0))[0]

@@ -1,5 +1,6 @@
 {
     "nproc": 4,
+    "test_size": 0.67,
     "data_dir": "data",
     "data_subdirs": {
         "raw": "raw",

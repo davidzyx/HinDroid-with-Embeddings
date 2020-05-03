@@ -140,11 +140,6 @@ def run(**config):
         for mat in ['A_tr.npz', 'A_tst.npz', 'B_tr.npz', 'P_tr.npz']
     ]
 
-    # meta_fp = os.path.join(PROC_DIR, 'meta.csv')
-    # meta = pd.read_csv(meta_fp, index_col=0)
-    # print(meta.label.value_counts())
-    # labels = (meta.label == 'class1').astype(int).values
-
     meta_tr_fp = os.path.join(PROC_DIR, 'meta_tr.csv')
     meta_tst_fp = os.path.join(PROC_DIR, 'meta_tst.csv')
     meta_tr = pd.read_csv(meta_tr_fp, index_col=0)
