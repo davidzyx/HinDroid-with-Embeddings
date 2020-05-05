@@ -76,7 +76,8 @@ int *table;
 
 
 //added 
-std::vector<long long> v_table(0), i_table(0), f_table(0), a_table(0);
+// std::vector<long long> v_table(0), i_table(0), f_table(0), a_table(0);
+std::vector<long long> app_table(0), api_table(0);
 
 void NodeType() {
 
@@ -86,21 +87,15 @@ void NodeType() {
     target = table[i];
     if (target == 0) continue;
     
-    if (vocab[target].word[0] == 'v') {
-      v_table.push_back(target);
-    } else if (vocab[target].word[0] == 'i') {
-      i_table.push_back(target);
-    } else if (vocab[target].word[0] == 'f') {
-      f_table.push_back(target);
-    } else if (vocab[target].word[0] == 'a') {
-      a_table.push_back(target);
+    if (vocab[target].word[2] == 'p') {
+      app_table.push_back(target);
+    } else if (vocab[target].word[2] == 'i') {
+      api_table.push_back(target);
     }
   }
   std::cout << "table_size     " << table_size << std::endl;
-  std::cout << "v_table.size() " << v_table.size() << std::endl;
-  std::cout << "i_table.size() " << i_table.size() << std::endl;
-  std::cout << "f_table.size() " << f_table.size() << std::endl;
-  std::cout << "a_table.size() " << a_table.size() << std::endl;
+  std::cout << "app_table.size() " << app_table.size() << std::endl;
+  std::cout << "api_table.size() " << api_table.size() << std::endl;
 }
 
 void InitUnigramTable() {
@@ -500,14 +495,10 @@ void *TrainModelThread(void *id) {
             next_random = next_random * (unsigned long long)25214903917 + 11;  
 
             if (pp) {
-              if        (vocab[last_word].word[0] == 'v') {
-                target = v_table[(next_random >> 16) % v_table.size()];
-              } else if (vocab[last_word].word[0] == 'a') {
-                target = a_table[(next_random >> 16) % a_table.size()];
-              } else if (vocab[last_word].word[0] == 'i') {
-                target = i_table[(next_random >> 16) % i_table.size()];
-              } else if (vocab[last_word].word[0] == 'f') {
-                target = f_table[(next_random >> 16) % f_table.size()];
+              if        (vocab[last_word].word[2] == 'p') {
+                target = app_table[(next_random >> 16) % app_table.size()];
+              } else if (vocab[last_word].word[2] == 'i') {
+                target = api_table[(next_random >> 16) % api_table.size()];
               }
               if (target == 0) target = next_random % (vocab_size - 1) + 1;
               if (vocab[last_word].word[0] != vocab[target].word[0]) continue;   
