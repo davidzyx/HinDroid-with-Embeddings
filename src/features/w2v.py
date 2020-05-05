@@ -37,7 +37,7 @@ class word2vec(object):
            
     def create_model(self):
         sentences = MyCorpus(self.corpus_path)
-        self.model = gensim.models.Word2Vec(sentences=sentences, min_count=1, size=200)
+        self.model = gensim.models.Word2Vec(sentences=sentences)
     
     def ABPBA(self, length=5000):
         while True:
@@ -97,9 +97,11 @@ class word2vec(object):
         plot_with_plotly(x_vals, y_vals, labels)
         
     # Predict embeddings for application in testing set
+    # Populate the embeddings into the model
     def train_predict(self):
         X = []
         Y = []
+        print("start")
         for j in range(self.train_A.shape[0]):
             indexes = np.nonzero((self.train_A[j]).toarray()[0])[0]
             all_api = self.model.wv.vocab.keys()
@@ -110,9 +112,12 @@ class word2vec(object):
                     matrix += self.model.wv[element]
             matrix /= len(all_api)
             X.append(matrix)
-            Y.append(model.wv['app_' + str(j)])
+            Y.append(self.model.wv['app_' + str(j)])
+            
+        print("middle")
                        
         test_X = []
+        labels = []
         for j in range(self.test_A.shape[0]):
             indexes = np.nonzero((self.test_A[j]).toarray()[0])[0]
             all_api = self.model.wv.vocab.keys()
@@ -123,10 +128,15 @@ class word2vec(object):
                     matrix += self.model.wv[element]
             matrix /= len(all_api)
             test_X.append(matrix)
-                       
+            labels.append('app_' + str(j + self.train_A.shape[0]))
+
+        print("here")
         regressor = LinearRegression()
         regressor.fit(X, Y)
-        return regressor.predict(test_X)
+        
+        embeddings = regressor.predict(test_X)
+        
+        return regressor.predict(test_X), labels
                        
 
 class MyCorpus(object):
@@ -140,7 +150,24 @@ class MyCorpus(object):
             # assume there's one document per line, tokens separated by whitespace
             yield line.strip().split(' ')
 
-
+# Helper function in reduce dimensions
+def label_classifier(app_number):
+    if app_number > 332 and app_number < 666:
+#         return "train_malware"
+        return 0
+    
+    elif app_number <= 332:
+#         return "train_benign"
+        return 1
+    
+    elif app_number >= 666 and app_number < 833:
+#         return "test_benign"
+        return 2
+    
+    else:
+        return 3
+#         return "test_malware"
+            
 def reduce_dimensions(model):
     num_dimensions = 2  # final num dimensions (2D, 3D, etc)
 
@@ -148,10 +175,7 @@ def reduce_dimensions(model):
     labels = []  # keep track of words to label our data again later
     for word in model.wv.vocab:
         if 'app' in word:
-            if int(word.split('_')[1]) > 332:
-                labels.append(1)
-            else:
-                labels.append(0)
+            labels.append(label_classifier(int(word.split('_')[1])))
 
             vectors.append(model.wv[word])
             # labels.append(word)
