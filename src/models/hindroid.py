@@ -98,27 +98,43 @@ class HinDroidNew():
             print(path)
             svm = SVC(kernel='precomputed')
 
+            print('Calculating gram matrix for train')
             if path is 'AA':
                 gram_train = np.dot(self.A_tr, self.A_tr.T).todense()
-                gram_test = np.dot(self.A_tst, self.A_tr.T).todense()
             elif path is 'APA':
                 gram_train = np.dot(np.dot(self.A_tr, self.P_tr), self.A_tr.T).todense()
-                gram_test = np.dot(np.dot(self.A_tst, self.P_tr), self.A_tr.T).todense()
             elif path is 'ABA':
                 gram_train = np.dot(np.dot(self.A_tr, self.B_tr), self.A_tr.T).todense()
-                gram_test = np.dot(np.dot(self.A_tst, self.B_tr), self.A_tr.T).todense()
             elif path is 'APBPA':
                 gram_train = (self.A_tr * self.P_tr * self.B_tr * self.P_tr * self.A_tr.T).todense()
+            else:
+                raise NotImplementedError()
+
+            print('Fitting SVM')
+            svm.fit(gram_train, y_train)
+            train_acc = svm.score(gram_train, y_train)
+
+            del gram_train
+
+            print('Calculating gram matrix for test')
+            if path is 'AA':
+                gram_test = np.dot(self.A_tst, self.A_tr.T).todense()
+            elif path is 'APA':
+                gram_test = np.dot(np.dot(self.A_tst, self.P_tr), self.A_tr.T).todense()
+            elif path is 'ABA':
+                gram_test = np.dot(np.dot(self.A_tst, self.B_tr), self.A_tr.T).todense()
+            elif path is 'APBPA':
                 gram_test = (self.A_tst * self.P_tr * self.B_tr * self.P_tr * self.A_tr.T).todense()
             else:
                 raise NotImplementedError()
 
-            svm.fit(gram_train, y_train)
-            train_acc = svm.score(gram_train, y_train)
+            print('Predicting SVM')
             y_pred = svm.predict(gram_test)
             test_acc = accuracy_score(y_test, y_pred)
             f1 = f1_score(y_test, y_pred)
             tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+
+            del gram_test
 
             result = pd.Series({
                 'train_acc': train_acc, 'test_acc': test_acc, 'f1': f1,
