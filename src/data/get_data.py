@@ -86,6 +86,8 @@ def stage_apkpure(cls_i_cfg, out_dir, nproc):
         for target, n in sampling_cfg['category_targets'].items():
             ppl = IngestionPipeline.from_category(target, n, out_dir, nproc)
             smali_dirs += ppl.final_dirs
+            del ppl
+            print(f'Done ingesting {n} apps from {target}')
     else:
         raise NotImplementedError
     return smali_dirs
@@ -111,9 +113,9 @@ def stage_apk(cls_i_cfg, out_dir, nproc):
             smali_dirs = IngestionPipeline.from_apks(fp_iter, n, out_dir)
         elif sampling_cfg['method'] == 'all':
             assert len(apk_fps) > 0
+            print(f'Ingesting {len(apk_fps)} apks')
             smali_dirs = apktool.mt_decompile_apks(apk_fps, out_dir, 2)
-            if None in smali_dirs:
-                raise IngestionException('Invalid apk in external_dir')
+            smali_dirs = [i for i in smali_dirs if i is not None]
         else:
             raise NotImplementedError
     else:
@@ -140,7 +142,7 @@ def stage_smali(cls_i_cfg, out_dir, nproc):
         raise NotImplementedError
 
     links = [os.path.join(out_dir, os.path.basename(os.path.dirname(src))) for src in smali_dirs]
-    [os.symlink(src, link) for src, link in zip(smali_dirs, links)]
+    [os.symlink(src, link, target_is_directory=True) for src, link in zip(smali_dirs, links)]
     return smali_dirs
 
 

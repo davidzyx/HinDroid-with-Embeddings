@@ -98,6 +98,7 @@ class HINProcess():
         self.API_uid = UniqueIdAssigner()
         for info in tqdm(self.infos):
             info['api_id'] = self.API_uid.add(*info.api)
+            del info['api']
 
         self.APP_uid = UniqueIdAssigner()
         for package in self.packages:
@@ -108,58 +109,71 @@ class HINProcess():
             csv, dtype={'method_name': str}, keep_default_na=False
         )
         df['api'] = df.library + '->' + df.method_name
+
+        # Save precious memory
+        del df['relpath']
+        del df['call']
+        del df['method_name']
         return df
 
     def construct_graph_A(self):
-        unique_APIs_app = [set(info.api_id) for info in self.infos]
-        unique_APIs_all = set.union(*unique_APIs_app)
+        print('Constructing A matrix')
+        
+        A_mat = sparse.lil_matrix((len(self.APP_uid), len(self.API_uid)), dtype=np.int8)
+        for i, info in tqdm(enumerate(self.infos), total=len(self.APP_uid)):
+            A_mat[i, info.api_id] = 1
 
-        A_cols = []
-        for unique in unique_APIs_all:
-            bag_of_API = [
-                1 if unique in app_set else 0
-                for app_set in unique_APIs_app
-            ]
-            A_cols.append(bag_of_API)
-
-        A_mat = np.array(A_cols).T  # shape: (# of apps, # of unique APIs)
+        # shape: (# of apps, # of unique APIs)
         # A_mat = sparse.csr_matrix(A_mat)
         return A_mat
 
-    def _prep_graph_B(info):
+    def construct_A_counts(self):
+        print('Constructing A matrix')
+
+        counts_mat = sparse.lil_matrix((len(self.APP_uid), len(self.API_uid)), dtype=np.uint8)
+        for i, info in tqdm(enumerate(self.infos), total=len(self.APP_uid)):
+            v = info.api_id.value_counts()
+            counts_mat[i, v.index] = v.values
+
+        # shape: (# of apps, # of unique APIs)
+        return counts_mat
+
+    def _prep_graph_B(info, csv):
+        outfile = csv[:-4] + '.B'
+        if os.path.exists(outfile + '.npy'):
+            return np.load(outfile + '.npy')
+
         func_pairs = lambda d: list(combinations(d.api_id.unique(), 2))
         edges = pd.DataFrame(
             info.groupby('code_block_id').apply(func_pairs).explode()
             .reset_index(drop=True).drop_duplicates().dropna()
             .values.tolist()
         ).values.T.astype('uint32')
+
+        np.save(outfile, edges)
         return edges
 
-    def _prep_graph_P(info):
+    def _prep_graph_P(info, csv):
+        outfile = csv[:-4] + '.P'
+        if os.path.exists(outfile + '.npy'):
+            return np.load(outfile + '.npy')
+
         func_pairs = lambda d: list(combinations(d.api_id.unique(), 2))
         edges = pd.DataFrame(
             info.groupby('library').apply(func_pairs).explode()
             .reset_index(drop=True).drop_duplicates().dropna()
             .values.tolist()
         ).values.T.astype('uint32')
+
+        np.save(outfile, edges)
         return edges
 
-    def _save_interim_BP(Bs, Ps, csvs, nproc):
-        print('Saving B and P', file=sys.stdout)
-        p_umap(
-            lambda arr, file: np.save(file, arr),
-            Bs + Ps,
-            [f[:-4] + '.B' for f in csvs] + [f[:-4] + '.P' for f in csvs],
-            num_cpus=nproc
-        )
 
-    def prep_graph_BP(self, out=True):
+    def prep_graph_BP(self):
         print('Preparing B', file=sys.stdout)
-        Bs = p_map(HINProcess._prep_graph_B, self.infos, num_cpus=self.nproc)
+        Bs = p_map(HINProcess._prep_graph_B, self.infos, self.csvs, num_cpus=self.nproc)
         print('Preparing P', file=sys.stdout)
-        Ps = p_map(HINProcess._prep_graph_P, self.infos, num_cpus=self.nproc)
-        if out:
-            HINProcess._save_interim_BP(Bs, Ps, self.csvs, self.nproc)
+        Ps = p_map(HINProcess._prep_graph_P, self.infos, self.csvs, num_cpus=self.nproc)
         return Bs, Ps
 
     def _build_coo(arr_ls, shape):
@@ -198,6 +212,9 @@ class HINProcess():
         # sparse.save_npz(os.path.join(path, 'A_full'), self.A_mat_full)
         sparse.save_npz(os.path.join(path, 'A_tr'), self.A_mat_tr)
         sparse.save_npz(os.path.join(path, 'A_tst'), self.A_mat_tst)
+        sparse.save_npz(os.path.join(path, 'counts_tr'), self.counts_mat_tr)
+        sparse.save_npz(os.path.join(path, 'counts_tst'), self.counts_mat_tst)
+
         sparse.save_npz(os.path.join(path, 'B_tr'), self.B_mat_tr)
         # sparse.save_npz(os.path.join(path, 'B_tst'), self.B_mat_tr)
         sparse.save_npz(os.path.join(path, 'P_tr'), self.P_mat_tr)
@@ -218,20 +235,26 @@ class HINProcess():
         assert cutoff != len_apps
         tr_apps = shfld_apps[:cutoff]
         tst_apps = shfld_apps[cutoff:]
-        tr_apis = np.nonzero(self.A_mat[tr_apps, :].sum(axis=0))[0]
-        print(f'{len(self.API_uid)} overall APIs, {len(tr_apis)} APIs masked in train')
+        tr_apis = np.nonzero(self.A_mat[tr_apps, :].sum(axis=0))[1]
+        assert np.sum(tr_apis) > 0
+        print(f'{len(self.API_uid)} overall APIs, {len(tr_apis)} are in train')
         return tr_apps, tst_apps, tr_apis
 
     def train_test_split(self, Bs, Ps):
         tr_apps, tst_apps, tr_apis = self.shuffle_split()
 
         # len(APIs) are of entire dataset, but masked in training
-        self.A_mat_full = sparse.csr_matrix(self.A_mat)
         excluded_apis = list(set(range(self.A_mat.shape[1])) - set(tr_apis))
+        
         self.A_mat[:, excluded_apis] = 0
         self.A_mat = sparse.csr_matrix(self.A_mat)
         self.A_mat_tr = self.A_mat[tr_apps, :]
         self.A_mat_tst = self.A_mat[tst_apps, :]
+
+        self.counts_mat[:, excluded_apis] = 0
+        self.counts_mat = sparse.csr_matrix(self.counts_mat)
+        self.counts_mat_tr = self.counts_mat[tr_apps, :]
+        self.counts_mat_tst = self.counts_mat[tst_apps, :]
 
         Bs_tr = [B for i, B in enumerate(Bs) if i in tr_apps]
         # Bs_tst = [B for i, B in enumerate(Bs) if i in tst_apps]
@@ -243,7 +266,9 @@ class HINProcess():
 
     def run(self):
         self.A_mat = self.construct_graph_A()
+        self.counts_mat = self.construct_A_counts()
         Bs, Ps = self.prep_graph_BP()
+        del self.infos
 
         tr_apps, tst_apps, tr_apis, Bs_tr, Ps_tr = \
             self.train_test_split(Bs, Ps)

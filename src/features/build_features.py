@@ -35,6 +35,7 @@ def process_app(app_dir, out_dir):
 
 def extract_save(in_dir, out_dir, class_i, nproc):
     app_dirs = glob(os.path.join(in_dir, '*/'))
+    assert len(app_dirs) > 0, in_dir
 
     print(f'Extracting features for {class_i}')
 
@@ -60,7 +61,7 @@ def build_features(**config):
 
         # Look for processed csv files, skip extract step
         csv_paths = glob(f'{itrm_dir}/*.csv')
-        if len(csv_paths) == len(glob(f'{raw_dir}/*')):
+        if len(csv_paths) > 0:
             print('Found previously generated CSV files')
             packages = [p[:-4] for p in csv_paths]
         else:
@@ -73,7 +74,7 @@ def build_features(**config):
             apps_meta.append((cls_i, package, csv_path,))
             csvs.append(csv_path)
 
-    print(csvs)
+    print('Total number of csvs:', len(csvs))
     hin = HINProcess(csvs, utils.PROC_DIR, nproc=nproc, test_size=test_size)
     hin.run()
 
