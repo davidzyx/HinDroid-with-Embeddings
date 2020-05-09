@@ -63,7 +63,7 @@ def build_features(**config):
         csv_paths = glob(f'{itrm_dir}/*.csv')
         if len(csv_paths) > 0:
             print('Found previously generated CSV files')
-            packages = [p[:-4] for p in csv_paths]
+            packages = [os.path.basename(p)[:-4] for p in csv_paths]
         else:
             print('Previous extracted CSV files not found/complete')
             packages, csv_paths = extract_save(raw_dir, itrm_dir, cls_i, nproc)

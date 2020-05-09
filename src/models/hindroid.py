@@ -87,16 +87,15 @@ class HinDroidNew():
         # self.kernels = self.construct_kernels(metapaths)
         # self.svms = [SVC(kernel='precomputed') for mp in metapaths]
     
-    def evaluate(self, tr_labels, tst_labels):
-        y_train = tr_labels
-        y_test = tst_labels
+    def evaluate(self, y_train, y_test):
         self.A_tr = sparse.csr_matrix(self.A_tr, dtype='uint32')
         self.A_tst = sparse.csr_matrix(self.A_tst, dtype='uint32')
 
         results = []
+        tr_pred = {}
+        tst_pred = {}
         for path in self.metapaths:
             print(path)
-            svm = SVC(kernel='precomputed')
 
             print('Calculating gram matrix for train')
             if path is 'AA':
@@ -111,8 +110,11 @@ class HinDroidNew():
                 raise NotImplementedError()
 
             print('Fitting SVM')
+            svm = SVC(kernel='precomputed')
             svm.fit(gram_train, y_train)
-            train_acc = svm.score(gram_train, y_train)
+            train_predicted = svm.predict(gram_train)
+            train_acc = accuracy_score(y_train, train_predicted)
+            tr_pred[path] = train_predicted
 
             del gram_train
 
@@ -130,11 +132,13 @@ class HinDroidNew():
 
             print('Predicting SVM')
             y_pred = svm.predict(gram_test)
+            del gram_test
+            tst_pred[path] = y_pred
+
             test_acc = accuracy_score(y_test, y_pred)
             f1 = f1_score(y_test, y_pred)
             tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
 
-            del gram_test
 
             result = pd.Series({
                 'train_acc': train_acc, 'test_acc': test_acc, 'f1': f1,
@@ -144,7 +148,7 @@ class HinDroidNew():
             print()
             results.append(result)
 
-        return results
+        return results, tr_pred, tst_pred
 
 
 
@@ -169,4 +173,13 @@ def run(**config):
         'B_tr': B_tr, 'P_tr': P_tr
     }
     hin = HinDroidNew(matrices, metapaths)
-    results = hin.evaluate(tr_labels, tst_labels)
+    results, tr_pred, tst_pred = hin.evaluate(tr_labels, tst_labels)
+
+    for mtpath, preds in tr_pred.items():
+        meta_tr[mtpath] = preds
+    
+    for mtpath, preds in tst_pred.items():
+        meta_tst[mtpath] = preds
+
+    meta_tr.to_csv(meta_tr_fp)
+    meta_tst.to_csv(meta_tst_fp)
