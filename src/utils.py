@@ -1,6 +1,7 @@
 import os
 import shutil
 from collections import defaultdict
+import numpy as np
 
 RAW_DIR = None
 ITRM_DIR = None
@@ -103,3 +104,18 @@ def get_tree_size(path):
         else:
             total += entry.stat(follow_symlinks=False).st_size
     return total
+
+
+# From https://stackoverflow.com/a/47171600
+def replace_with_dict(arr, dic):
+    """Replace an array's values with dictionary"""
+    # Extract out keys and values
+    k = np.array(list(dic.keys()))
+    v = np.array(list(dic.values()))
+
+    # Get argsort indices
+    sidx = k.argsort()
+
+    ks = k[sidx]
+    vs = v[sidx]
+    return vs[np.searchsorted(ks, arr)]

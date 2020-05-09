@@ -9,7 +9,7 @@ from itertools import combinations
 from p_tqdm import p_map, p_umap
 from scipy import sparse
 
-from src.utils import UniqueIdAssigner
+from src.utils import UniqueIdAssigner, replace_with_dict
 
 
 class SmaliApp():
@@ -128,7 +128,7 @@ class HINProcess():
         return A_mat
 
     def construct_A_counts(self):
-        print('Constructing A matrix')
+        print('Constructing counts matrix')
 
         counts_mat = sparse.lil_matrix((len(self.APP_uid), len(self.API_uid)), dtype=np.uint8)
         for i, info in tqdm(enumerate(self.infos), total=len(self.APP_uid)):
@@ -188,7 +188,10 @@ class HINProcess():
         return sparse_arr
 
     def construct_graph_BP(self, Bs, Ps, tr_apis):
-        shape = (len(self.API_uid), len(self.API_uid))
+        shape = (len(tr_apis), len(tr_apis))
+        # Replace original API IDs with condensed consecutive IDs
+        idx_map = dict(zip(tr_apis, range(len(tr_apis))))
+
         for i in range(len(Bs)):
             B = Bs[i]
             P = Ps[i]
@@ -197,8 +200,14 @@ class HINProcess():
             # Filtering
             mask_B = np.nonzero(np.isin(B, tr_apis).sum(axis=0) == 2)[0]
             B = B[:, mask_B]
+            B = replace_with_dict(B, idx_map)
+            Bs[i] = B
+
             mask_P = np.nonzero(np.isin(P, tr_apis).sum(axis=0) == 2)[0]
             P = P[:, mask_P]
+            P = replace_with_dict(P, idx_map)
+            Ps[i] = P
+
 
         print('Constructing B', file=sys.stdout)
         B_mat = HINProcess._build_coo(Bs, shape).tocsc()
@@ -237,21 +246,23 @@ class HINProcess():
         tst_apps = shfld_apps[cutoff:]
         tr_apis = np.nonzero(self.A_mat[tr_apps, :].sum(axis=0))[1]
         assert np.sum(tr_apis) > 0
-        print(f'{len(self.API_uid)} overall APIs, {len(tr_apis)} are in train')
-        return tr_apps, tst_apps, tr_apis
+        print(f'{len(self.API_uid)} APIs overall, {len(tr_apis)} in training')
+        freq_apis = np.nonzero(self.A_mat[tr_apps, :].sum(axis=0) > 1)[1]
+        assert np.sum(freq_apis) > 0
+        print(f'{len(self.API_uid)} APIs overall, {len(freq_apis)} in training have appeared at least twice')
+        return tr_apps, tst_apps, freq_apis
 
     def train_test_split(self, Bs, Ps):
         tr_apps, tst_apps, tr_apis = self.shuffle_split()
 
-        # len(APIs) are of entire dataset, but masked in training
-        excluded_apis = list(set(range(self.A_mat.shape[1])) - set(tr_apis))
-        
-        self.A_mat[:, excluded_apis] = 0
+        self.A_mat = self.A_mat.tocsc()
+        self.A_mat = self.A_mat[:, tr_apis]  # condense training APIs
         self.A_mat = sparse.csr_matrix(self.A_mat)
         self.A_mat_tr = self.A_mat[tr_apps, :]
         self.A_mat_tst = self.A_mat[tst_apps, :]
 
-        self.counts_mat[:, excluded_apis] = 0
+        self.counts_mat = self.counts_mat.tocsc()
+        self.counts_mat = self.counts_mat[:, tr_apis]  # condense training APIs
         self.counts_mat = sparse.csr_matrix(self.counts_mat)
         self.counts_mat_tr = self.counts_mat[tr_apps, :]
         self.counts_mat_tst = self.counts_mat[tst_apps, :]
