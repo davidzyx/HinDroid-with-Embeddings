@@ -91,17 +91,17 @@ class word2vec(object):
 
             yield path
     
-    def plot(self):
+    def plot_embeddings(self):
         x_vals, y_vals, labels = reduce_dimensions(self.model)
 
         plot_with_plotly(x_vals, y_vals, labels)
         
     # Predict embeddings for application in testing set
     # Populate the embeddings into the model
-    def train_predict(self):
+    def predict_embeddings(self):
         X = []
         Y = []
-        print("start")
+        train_labels = []
         for j in range(self.train_A.shape[0]):
             indexes = np.nonzero((self.train_A[j]).toarray()[0])[0]
             all_api = self.model.wv.vocab.keys()
@@ -113,11 +113,10 @@ class word2vec(object):
             matrix /= len(all_api)
             X.append(matrix)
             Y.append(self.model.wv['app_' + str(j)])
-            
-        print("middle")
-                       
+            train_labels.append('app_' + str(j))
+                                   
         test_X = []
-        labels = []
+        test_labels = []
         for j in range(self.test_A.shape[0]):
             indexes = np.nonzero((self.test_A[j]).toarray()[0])[0]
             all_api = self.model.wv.vocab.keys()
@@ -128,17 +127,21 @@ class word2vec(object):
                     matrix += self.model.wv[element]
             matrix /= len(all_api)
             test_X.append(matrix)
-            labels.append('app_' + str(j + self.train_A.shape[0]))
+            test_labels.append('app_' + str(j + self.train_A.shape[0]))
 
-        print("here")
         regressor = LinearRegression()
         regressor.fit(X, Y)
         
         embeddings = regressor.predict(test_X)
         
-        return regressor.predict(test_X), labels
-                       
-
+        for i in range(len(test_labels)):
+            self.model.wv[test_labels[i]] = embeddings[i] 
+        
+        self.train_embeddings = Y
+        self.test_embeddings = embeddings
+        self.train_labels = [app_label(i) for i in train_labels]
+        self.test_labels = [app_label(i) for i in test_labels]
+        
 class MyCorpus(object):
     """An interator that yields sentences (lists of str)."""
 
@@ -150,8 +153,9 @@ class MyCorpus(object):
             # assume there's one document per line, tokens separated by whitespace
             yield line.strip().split(' ')
 
-# Helper function in reduce dimensions
+# Helper function in reduce dimensions for colors on the graph
 def label_classifier(app_number):
+    app_number = int(app_number.split('_')[1])
     if app_number > 332 and app_number < 666:
 #         return "train_malware"
         return 0
@@ -167,6 +171,21 @@ def label_classifier(app_number):
     else:
         return 3
 #         return "test_malware"
+
+# benign - 0, malware - 1
+def app_label(app_number):
+    app_number = int(app_number.split('_')[1])
+    if app_number > 332 and app_number < 666:
+        return 1
+    
+    elif app_number <= 332:
+        return 0
+    
+    elif app_number >= 666 and app_number < 833:
+        return 0
+    
+    else:
+        return 1
             
 def reduce_dimensions(model):
     num_dimensions = 2  # final num dimensions (2D, 3D, etc)
@@ -175,10 +194,10 @@ def reduce_dimensions(model):
     labels = []  # keep track of words to label our data again later
     for word in model.wv.vocab:
         if 'app' in word:
-            labels.append(label_classifier(int(word.split('_')[1])))
+#             labels.append(label_classifier(int(word.split('_')[1])))
 
             vectors.append(model.wv[word])
-            # labels.append(word)
+            labels.append(word)
 
     # convert both lists into numpy vectors for reduction
     vectors = np.asarray(vectors)
@@ -197,10 +216,11 @@ def reduce_dimensions(model):
 def plot_with_plotly(x_vals, y_vals, labels, plot_in_notebook=True):
     from plotly.offline import init_notebook_mode, iplot, plot
     import plotly.graph_objs as go
+    from plotly import tools
 
-    trace = go.Scatter(x=x_vals, y=y_vals, mode='markers',
-                       text=labels, marker=dict(size=5, color=labels))
-
+    trace = go.Scatter(x=x_vals, y=y_vals, mode='markers', text=labels, 
+                       marker=dict(size=5, color=[label_classifier(i) for i in labels]))
+    
     data = [trace]
 
     if plot_in_notebook:
