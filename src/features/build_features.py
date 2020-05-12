@@ -35,6 +35,7 @@ def process_app(app_dir, out_dir):
 
 def extract_save(in_dir, out_dir, class_i, nproc):
     app_dirs = glob(os.path.join(in_dir, '*/'))
+    assert len(app_dirs) > 0, in_dir
 
     print(f'Extracting features for {class_i}')
 
@@ -49,33 +50,43 @@ def build_features(**config):
     """Main function of data ingestion. Runs according to config file"""
     # Set number of process, default to 2
     nproc = config['nproc'] if 'nproc' in config.keys() else 2
+    test_size = config['test_size'] if 'test_size' in config.keys() else 0.67
 
-    labels = {}
     csvs = []
+    apps_meta = []
 
     for cls_i in utils.ITRM_CLASSES_DIRS.keys():
         raw_dir = utils.RAW_CLASSES_DIRS[cls_i]
         itrm_dir = utils.ITRM_CLASSES_DIRS[cls_i]
 
-        packages, csv_paths = extract_save(raw_dir, itrm_dir, cls_i, nproc)
+        # Look for processed csv files, skip extract step
+        csv_paths = glob(f'{itrm_dir}/*.csv')
+        if len(csv_paths) > 0:
+            print('Found previously generated CSV files')
+            packages = [os.path.basename(p)[:-4] for p in csv_paths]
+        else:
+            print('Previous extracted CSV files not found/complete')
+            packages, csv_paths = extract_save(raw_dir, itrm_dir, cls_i, nproc)
 
-        # Replace above line with these commented lines if you have ran `process` before
-        # csv_paths = glob(f'{itrm_dir}/*.csv')
-        # packages = [p[:-4] for p in csv_paths]
+        # Sort meta by package name for consistent index
+        di = dict(zip(packages, csv_paths))
+        for package, csv_path in sorted(di.items()):
+            apps_meta.append((cls_i, package, csv_path,))
+            csvs.append(csv_path)
 
-        labels[cls_i] = packages
-        csvs += csv_paths
-
-    flatten = lambda ll: [i for j in ll for i in j]
-    meta = pd.DataFrame({
-        'label': flatten([[k] * len(v) for k, v in labels.items()])
-    }, index=flatten(labels.values()))
-    meta.to_csv(os.path.join(utils.PROC_DIR, 'meta.csv'))
-
-    hin = HINProcess(csvs, utils.PROC_DIR, nproc=nproc)
+    print('Total number of csvs:', len(csvs))
+    hin = HINProcess(csvs, utils.PROC_DIR, nproc=nproc, test_size=test_size)
     hin.run()
 
+    meta = pd.DataFrame(
+        apps_meta,
+        columns=['label', 'package', 'csv_path']
+    )
+
     meta_train = meta.iloc[hin.tr_apps, :]
-    meta_tst = meta.iloc[hin.tst_apps, :]
+    meta_train.index = [f'app_{i}' for i in range(len(meta_train))]
     meta_train.to_csv(os.path.join(utils.PROC_DIR, 'meta_tr.csv'))
+
+    meta_tst = meta.iloc[hin.tst_apps, :]
+    meta_tst.index = [f'app_{i + len(meta_train)}' for i in range(len(meta_tst))]
     meta_tst.to_csv(os.path.join(utils.PROC_DIR, 'meta_tst.csv'))

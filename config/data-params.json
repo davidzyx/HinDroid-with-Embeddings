@@ -1,5 +1,6 @@
 {
-    "nproc": 4,
+    "nproc": 6,
+    "test_size": 0.5,
     "data_dir": "data",
     "data_subdirs": {
         "raw": "raw",
@@ -8,17 +9,12 @@
     },
     "data_classes": {
         "class0": {
-            "stage": "apkpure",
-            "apkpure_preload_metadata_fp": false,
+            "stage": "smali",
+            "external_dir": "../apkpure/smali",
+            "external_structure": "flat",
             "sampling": {
-                "method": "category",
-                "category_targets": {
-                    "communication": 100,
-                    "tools": 100,
-                    "comics": 100,
-                    "art_and_design": 100,
-                    "beauty": 100
-                }
+                "method": "random",
+                "n": 1393
             }
         },
         "class1": {
@@ -28,7 +24,7 @@
             "external_structure": "by_category_variety",
             "sampling": {
                 "method": "random",
-                "n": 500
+                "n": 1400
             }
         }
     }

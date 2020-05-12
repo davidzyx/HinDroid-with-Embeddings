@@ -1,6 +1,7 @@
 {
     "nproc": 2,
-    "data_dir": "data",
+    "test_size": 0.67,
+    "data_dir": "data_test",
     "data_subdirs": {
         "raw": "raw",
         "interim": "interim",
@@ -13,7 +14,7 @@
             "external_structure": "flat",
             "sampling": {
                 "method": "random",
-                "n": 10
+                "n": 3
             }
         },
         "class1": {
@@ -22,7 +23,7 @@
             "external_structure": "flat",
             "sampling": {
                 "method": "random",
-                "n": 10
+                "n": 2
             }
         }
     }

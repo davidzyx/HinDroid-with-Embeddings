@@ -87,38 +87,62 @@ class HinDroidNew():
         # self.kernels = self.construct_kernels(metapaths)
         # self.svms = [SVC(kernel='precomputed') for mp in metapaths]
     
-    def evaluate(self, tr_labels, tst_labels):
-        y_train = tr_labels
-        y_test = tst_labels
+    def evaluate(self, y_train, y_test):
         self.A_tr = sparse.csr_matrix(self.A_tr, dtype='uint32')
         self.A_tst = sparse.csr_matrix(self.A_tst, dtype='uint32')
 
         results = []
+        tr_pred = {}
+        tst_pred = {}
         for path in self.metapaths:
             print(path)
-            svm = SVC(kernel='precomputed')
 
+            print('Calculating gram matrix for train')
             if path is 'AA':
                 gram_train = np.dot(self.A_tr, self.A_tr.T).todense()
-                gram_test = np.dot(self.A_tst, self.A_tr.T).todense()
             elif path is 'APA':
                 gram_train = np.dot(np.dot(self.A_tr, self.P_tr), self.A_tr.T).todense()
-                gram_test = np.dot(np.dot(self.A_tst, self.P_tr), self.A_tr.T).todense()
             elif path is 'ABA':
                 gram_train = np.dot(np.dot(self.A_tr, self.B_tr), self.A_tr.T).todense()
-                gram_test = np.dot(np.dot(self.A_tst, self.B_tr), self.A_tr.T).todense()
             elif path is 'APBPA':
                 gram_train = (self.A_tr * self.P_tr * self.B_tr * self.P_tr * self.A_tr.T).todense()
-                gram_test = (self.A_tst * self.P_tr * self.B_tr * self.P_tr * self.A_tr.T).todense()
+            elif path is 'ABPBA':
+                gram_train = (self.A_tr * self.B_tr * self.P_tr * self.B_tr * self.A_tr.T).todense()
             else:
                 raise NotImplementedError()
 
+            print('Fitting SVM')
+            svm = SVC(kernel='precomputed')
             svm.fit(gram_train, y_train)
-            train_acc = svm.score(gram_train, y_train)
+            train_predicted = svm.predict(gram_train)
+            train_acc = accuracy_score(y_train, train_predicted)
+            tr_pred[path] = train_predicted
+
+            del gram_train
+
+            print('Calculating gram matrix for test')
+            if path is 'AA':
+                gram_test = np.dot(self.A_tst, self.A_tr.T).todense()
+            elif path is 'APA':
+                gram_test = np.dot(np.dot(self.A_tst, self.P_tr), self.A_tr.T).todense()
+            elif path is 'ABA':
+                gram_test = np.dot(np.dot(self.A_tst, self.B_tr), self.A_tr.T).todense()
+            elif path is 'APBPA':
+                gram_test = (self.A_tst * self.P_tr * self.B_tr * self.P_tr * self.A_tr.T).todense()
+            elif path is 'ABPBA':
+                gram_test = (self.A_tst * self.B_tr * self.P_tr * self.B_tr * self.A_tr.T).todense()
+            else:
+                raise NotImplementedError()
+
+            print('Predicting SVM')
             y_pred = svm.predict(gram_test)
+            del gram_test
+            tst_pred[path] = y_pred
+
             test_acc = accuracy_score(y_test, y_pred)
             f1 = f1_score(y_test, y_pred)
             tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+
 
             result = pd.Series({
                 'train_acc': train_acc, 'test_acc': test_acc, 'f1': f1,
@@ -128,7 +152,7 @@ class HinDroidNew():
             print()
             results.append(result)
 
-        return results
+        return results, tr_pred, tst_pred
 
 
 
@@ -140,11 +164,6 @@ def run(**config):
         for mat in ['A_tr.npz', 'A_tst.npz', 'B_tr.npz', 'P_tr.npz']
     ]
 
-    # meta_fp = os.path.join(PROC_DIR, 'meta.csv')
-    # meta = pd.read_csv(meta_fp, index_col=0)
-    # print(meta.label.value_counts())
-    # labels = (meta.label == 'class1').astype(int).values
-
     meta_tr_fp = os.path.join(PROC_DIR, 'meta_tr.csv')
     meta_tst_fp = os.path.join(PROC_DIR, 'meta_tst.csv')
     meta_tr = pd.read_csv(meta_tr_fp, index_col=0)
@@ -152,10 +171,19 @@ def run(**config):
     tr_labels = (meta_tr.label == 'class1').astype(int).values
     tst_labels = (meta_tst.label == 'class1').astype(int).values
 
-    metapaths = ['AA', 'APA', 'ABA', 'APBPA']
+    metapaths = ['AA', 'APA', 'ABA', 'APBPA', 'ABPBA']
     matrices = {
         'A_tr': A_tr, 'A_tst': A_tst,
         'B_tr': B_tr, 'P_tr': P_tr
     }
     hin = HinDroidNew(matrices, metapaths)
-    results = hin.evaluate(tr_labels, tst_labels)
+    results, tr_pred, tst_pred = hin.evaluate(tr_labels, tst_labels)
+
+    for mtpath, preds in tr_pred.items():
+        meta_tr[mtpath] = preds
+    
+    for mtpath, preds in tst_pred.items():
+        meta_tst[mtpath] = preds
+
+    meta_tr.to_csv(meta_tr_fp)
+    meta_tst.to_csv(meta_tst_fp)
