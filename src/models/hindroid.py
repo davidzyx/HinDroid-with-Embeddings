@@ -106,6 +106,8 @@ class HinDroidNew():
                 gram_train = np.dot(np.dot(self.A_tr, self.B_tr), self.A_tr.T).todense()
             elif path is 'APBPA':
                 gram_train = (self.A_tr * self.P_tr * self.B_tr * self.P_tr * self.A_tr.T).todense()
+            elif path is 'ABPBA':
+                gram_train = (self.A_tr * self.B_tr * self.P_tr * self.B_tr * self.A_tr.T).todense()
             else:
                 raise NotImplementedError()
 
@@ -127,6 +129,8 @@ class HinDroidNew():
                 gram_test = np.dot(np.dot(self.A_tst, self.B_tr), self.A_tr.T).todense()
             elif path is 'APBPA':
                 gram_test = (self.A_tst * self.P_tr * self.B_tr * self.P_tr * self.A_tr.T).todense()
+            elif path is 'ABPBA':
+                gram_test = (self.A_tst * self.B_tr * self.P_tr * self.B_tr * self.A_tr.T).todense()
             else:
                 raise NotImplementedError()
 
@@ -167,7 +171,7 @@ def run(**config):
     tr_labels = (meta_tr.label == 'class1').astype(int).values
     tst_labels = (meta_tst.label == 'class1').astype(int).values
 
-    metapaths = ['AA', 'APA', 'ABA', 'APBPA']
+    metapaths = ['AA', 'APA', 'ABA', 'APBPA', 'ABPBA']
     matrices = {
         'A_tr': A_tr, 'A_tst': A_tst,
         'B_tr': B_tr, 'P_tr': P_tr

@@ -239,8 +239,10 @@ class HINProcess():
 
     def shuffle_split(self):
         len_apps = len(self.APP_uid)
+        np.random.seed(0)
         shfld_apps = np.random.choice(np.arange(len_apps), len_apps, replace=False)
         cutoff = int(len_apps * self.test_size)
+        print(f'Number of apps: {len_apps}, cutoff: {cutoff}')
         assert cutoff != len_apps
         tr_apps = shfld_apps[:cutoff]
         tst_apps = shfld_apps[cutoff:]
@@ -285,9 +287,12 @@ class HINProcess():
             self.train_test_split(Bs, Ps)
         self.tr_apps = tr_apps
         self.tst_apps = tst_apps
+        s_API = pd.Series(self.API_uid.value_by_id, name='api')
+        s_API = s_API[tr_apis].reset_index(drop=True)
+        s_API.to_csv(os.path.join(self.out_dir, 'APIs.csv'))
+        del s_API
 
         self.B_mat_tr, self.P_mat_tr = self.construct_graph_BP(Bs_tr, Ps_tr, tr_apis)
         # self.B_mat_tst, self.P_mat_tst = self.construct_graph_BP(Bs_tst, Ps_tst, tr_apis)
-
 
         self.save_matrices()
