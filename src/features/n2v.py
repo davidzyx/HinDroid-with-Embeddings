@@ -1,6 +1,7 @@
 from tqdm import tqdm
 import numpy as np
 from scipy import sparse
+import os
 
 
 class Node2Vec():
@@ -191,16 +192,38 @@ class Node2Vec():
 
         return walks
     
-    def save_corpus(self):
-        n=1
-        p=2
-        q=1
-        walk_length=100
-        
-        outfile = open(f'node2vec_n={n}_p={p}_q={q}_wl={walk_length}.cor', 'w')
+    def save_corpus(self, outdir, n=1, p=2, q=1, walk_length=100):
+        fp = os.path.join(
+            outdir, f'node2vec_n={n}_p={p}_q={q}_wl={walk_length}.cor'
+        )
+        outfile = open(fp, 'w')
+
         walks = self.perform_walks(n=n, p=p, q=q, walk_length=walk_length)
 
         print('saving..')
         for walk in tqdm(walks):
             outfile.write(' '.join(walk) + '\n')
         outfile.close()
+
+if __name__ == '__main__':
+    # indirs = ['data/processed/', '/datasets/home/51/451/yuz530/group_01/pipeline_output/']
+    indirs = ['data/processed/']
+    
+    for indir in indirs:
+        outdir = os.path.join(indir, 'walks')
+        if not os.path.exists(outdir):
+            os.mkdir(outdir)
+
+        A_tr = sparse.load_npz(os.path.join(indir, 'A_tr.npz'))
+        B_tr = sparse.load_npz(os.path.join(indir, 'B_tr.npz'))
+        P_tr = sparse.load_npz(os.path.join(indir, 'P_tr.npz'))
+
+        n2v = Node2Vec(A_tr, B_tr, P_tr)
+
+        # pod 1
+        n2v.save_corpus(outdir, n=1, p=2, q=1, walk_length=300)  
+        n2v.save_corpus(outdir, n=5, p=2, q=1, walk_length=60)   
+        n2v.save_corpus(outdir, n=10, p=2, q=1, walk_length=30)  
+
+        # pod 2
+        # n2v.save_corpus(outdir, n=25, p=2, q=1, walk_length=40)  
