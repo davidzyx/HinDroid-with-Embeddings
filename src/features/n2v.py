@@ -214,16 +214,16 @@ if __name__ == '__main__':
         if not os.path.exists(outdir):
             os.mkdir(outdir)
 
-        A_tr = sparse.load_npz(os.path.join(indir, 'A_tr.npz'))
-        B_tr = sparse.load_npz(os.path.join(indir, 'B_tr.npz'))
-        P_tr = sparse.load_npz(os.path.join(indir, 'P_tr.npz'))
+        A_tr = sparse.load_npz(os.path.join(indir, 'A_reduced_tr.npz'))
+        B_tr = sparse.load_npz(os.path.join(indir, 'B_reduced_tr.npz'))
+        P_tr = sparse.load_npz(os.path.join(indir, 'P_reduced_tr.npz'))
 
         n2v = Node2Vec(A_tr, B_tr, P_tr)
 
         # pod 1
-        n2v.save_corpus(outdir, n=1, p=2, q=1, walk_length=300)  
-        n2v.save_corpus(outdir, n=5, p=2, q=1, walk_length=60)   
-        n2v.save_corpus(outdir, n=10, p=2, q=1, walk_length=30)  
+        # n2v.save_corpus(outdir, n=20, p=2, q=1, walk_length=300)
+        n2v.save_corpus(outdir, n=15, p=2, q=1, walk_length=60)
+        # n2v.save_corpus(outdir, n=200, p=2, q=1, walk_length=30)
 
         # pod 2
-        # n2v.save_corpus(outdir, n=25, p=2, q=1, walk_length=40)  
+        # n2v.save_corpus(outdir, n=50, p=2, q=1, walk_length=400)
