@@ -4,10 +4,15 @@ from glob import glob
 import pandas as pd
 # !pip install multiprocess
 from p_tqdm import p_umap
+from sklearn.linear_model import LogisticRegression
+from sklearn.feature_selection import SelectFromModel
+from sklearn.metrics import confusion_matrix
+from scipy import sparse
 
 import src.utils as utils
 from src.features.smali import SmaliApp, HINProcess
 # from src.features.app_features import FeatureBuilder
+from src.features.bm25.bm25 import BM25Transformer
 
 
 def is_large_dir(app_dir, size_in_bytes=1e8):
@@ -90,3 +95,52 @@ def build_features(**config):
     meta_tst = meta.iloc[hin.tst_apps, :]
     meta_tst.index = [f'app_{i + len(meta_train)}' for i in range(len(meta_tst))]
     meta_tst.to_csv(os.path.join(utils.PROC_DIR, 'meta_tst.csv'))
+
+    del hin
+
+
+def reduce_apis(n_api=1000):
+    """API selection"""
+    print('Start reducing APIs')
+    counts_tr = sparse.load_npz(os.path.join(utils.PROC_DIR, 'counts_tr.npz'))
+    counts_tst = sparse.load_npz(os.path.join(utils.PROC_DIR, 'counts_tst.npz'))
+    df_tr = pd.read_csv(os.path.join(utils.PROC_DIR, 'meta_tr.csv'), index_col=0)
+    df_tst = pd.read_csv(os.path.join(utils.PROC_DIR, 'meta_tst.csv'), index_col=0)
+    malwares_tr = (df_tr.label == 'class1').values
+    malwares_tst = (df_tst.label == 'class1').values
+
+    bm = BM25Transformer()
+    bm_tr = bm.fit_transform(counts_tr)
+    bm_tst = bm.transform(counts_tst)
+
+    lr_bm = LogisticRegression(solver='sag')
+    lr_bm.fit(bm_tr, malwares_tr)
+
+    sfm = SelectFromModel(lr_bm, prefit=True, max_features=n_api)
+    
+    lr_new = LogisticRegression()
+    lr_new.fit(sfm.transform(bm_tr), malwares_tr)
+    tr_acc = lr_new.score(sfm.transform(bm_tr), malwares_tr)
+    tst_acc = lr_new.score(sfm.transform(bm_tst), malwares_tst)
+    print(f'Logistic regression test acc: {tst_acc}')
+    print(confusion_matrix(malwares_tst, lr_new.predict(sfm.transform(bm_tst))))
+
+    # Write new reduced matrices
+    A_tr = sparse.load_npz(os.path.join(utils.PROC_DIR, 'A_tr.npz'))
+    B_tr = sparse.load_npz(os.path.join(utils.PROC_DIR, 'B_tr.npz'))
+    P_tr = sparse.load_npz(os.path.join(utils.PROC_DIR, 'P_tr.npz'))
+    A_tst = sparse.load_npz(os.path.join(utils.PROC_DIR, 'A_tst.npz'))
+
+    A_tr = sparse.csr_matrix(A_tr, dtype='uint32')
+    A_tst = sparse.csr_matrix(A_tst, dtype='uint32')
+
+    reduced_apis = sfm.get_support()
+    A_tr = A_tr[:, reduced_apis]
+    B_tr = B_tr[reduced_apis, :][:, reduced_apis]  # idk why it has to be like this
+    P_tr = P_tr[reduced_apis, :][:, reduced_apis]
+    A_tst = A_tst[:, reduced_apis]
+
+    sparse.save_npz(os.path.join(utils.PROC_DIR, 'A_reduced_tr.npz'), A_tr)
+    sparse.save_npz(os.path.join(utils.PROC_DIR, 'B_reduced_tr.npz'), B_tr)
+    sparse.save_npz(os.path.join(utils.PROC_DIR, 'P_reduced_tr.npz'), P_tr)
+    sparse.save_npz(os.path.join(utils.PROC_DIR, 'A_reduced_tst.npz'), A_tst)
