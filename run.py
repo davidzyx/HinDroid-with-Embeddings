@@ -3,7 +3,7 @@ import json
 
 from src.utils import prep_dir, clean_raw, clean_features, clean_processed
 from src.data.get_data import get_data
-from src.features.build_features import build_features
+from src.features.build_features import build_features, reduce_apis
 from src.models import hindroid
 
 
@@ -47,6 +47,9 @@ def main(targets):
 
     if 'process' in targets:
         build_features(**cfg)
+
+    if 'reduce' in targets:
+        reduce_apis()
 
     if 'model' in targets:
         hindroid.run(**cfg)

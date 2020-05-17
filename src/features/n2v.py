@@ -1,15 +1,17 @@
 from tqdm import tqdm
 import numpy as np
 from scipy import sparse
+import os
 
 
 class Node2Vec():
-    def __init__(self, A_tr, B_tr, P_tr):
+    def __init__(self, A_tr, B_tr, P_tr, test_offset=0):
         assert 'csr_matrix' in str(type(A_tr))
         self.A_tr_csr = A_tr
         self.A_tr_csc = A_tr.tocsc(copy=True)
         self.B_tr = B_tr
         self.P_tr = P_tr
+        self.offset = test_offset
     
     def get_api_neighbors_A(self, app):
         """Get all API neighbors of an APP from A matrix"""
@@ -53,7 +55,7 @@ class Node2Vec():
         ])
         nbr_apis = np.unique(nbr_apis)
         nbr_apps = self.get_app_neighbors_A(api)
-        # weights later?
+        # weights later? no
         return nbr_apis, nbr_apps
     
     def perform_one_walk_full(self, p=1, q=1, walk_length=20, app=None):
@@ -191,16 +193,59 @@ class Node2Vec():
 
         return walks
     
-    def save_corpus(self):
-        n=1
-        p=2
-        q=1
-        walk_length=100
-        
-        outfile = open(f'node2vec_n={n}_p={p}_q={q}_wl={walk_length}.cor', 'w')
+    def save_corpus(self, outdir, n=1, p=2, q=1, walk_length=100, test=False):
+        fp = os.path.join(
+            outdir, f'node2vec_n={n}_p={p}_q={q}_wl={walk_length}.cor'
+        )
+        if test:
+            fp = os.path.join(
+                outdir, f'node2vec_n={n}_p={p}_q={q}_wl={walk_length}_test.cor'
+            )
+        outfile = open(fp, 'w')
+
         walks = self.perform_walks(n=n, p=p, q=q, walk_length=walk_length)
+
+        # add an offset for every app if in test mode
+        if self.offset > 0:
+            print('hi')
+            for i in range(len(walks)):
+                walk = walks[i]
+                walks[i] = [
+                    f"app_{int(node.split('_')[-1]) + self.offset}"
+                    if node.startswith('app') else node
+                    for node in walk
+                ]
 
         print('saving..')
         for walk in tqdm(walks):
             outfile.write(' '.join(walk) + '\n')
         outfile.close()
+
+if __name__ == '__main__':
+    # indirs = ['data/processed/', '/datasets/home/51/451/yuz530/group_01/pipeline_output/']
+    indirs = ['data/processed/']
+    
+    for indir in indirs:
+        outdir = os.path.join(indir, 'walks')
+        if not os.path.exists(outdir):
+            os.mkdir(outdir)
+
+        A_tr = sparse.load_npz(os.path.join(indir, 'A_reduced_tr.npz'))
+        A_tst = sparse.load_npz(os.path.join(indir, 'A_reduced_tst.npz'))
+        B_tr = sparse.load_npz(os.path.join(indir, 'B_reduced_tr.npz'))
+        P_tr = sparse.load_npz(os.path.join(indir, 'P_reduced_tr.npz'))
+
+        n2v = Node2Vec(A_tr, B_tr, P_tr)
+
+        # pod 1
+        # n2v.save_corpus(outdir, n=20, p=2, q=1, walk_length=300)
+        n2v.save_corpus(outdir, n=15, p=2, q=1, walk_length=60)
+        # n2v.save_corpus(outdir, n=200, p=2, q=1, walk_length=30)
+
+        # pod 2
+        # n2v.save_corpus(outdir, n=50, p=2, q=1, walk_length=400)
+
+        # Test corpus using train B and P
+        n2v_tst = Node2Vec(A_tst, B_tr, P_tr, test_offset=A_tr.shape[0])
+        n2v_tst.save_corpus(outdir, n=15, p=2, q=1, walk_length=60, test=True)
+
