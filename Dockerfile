@@ -30,6 +30,8 @@ RUN P=/tmp/$(basename $APK_JAR) && \
     wget -q -O $P $APK_JAR && \
     chmod +x $P && \
     mv $P /usr/local/bin/apktool.jar
+    
+RUN conda install pytorch torchvision cpuonly -c pytorch
 
 COPY requirements.txt /tmp
 RUN pip install --no-cache-dir -r /tmp/requirements.txt  && \
