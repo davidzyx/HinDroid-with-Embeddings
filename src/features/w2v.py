@@ -29,6 +29,9 @@ import torch.optim as optim
 
 import seaborn as sns
 import matplotlib.pyplot as plt
+import os
+
+import src.utils as utils
 
 class word2vec(object):
     def __init__(self, matrix_path, corpus_path):
@@ -45,7 +48,8 @@ class word2vec(object):
         self.train_B = sparse.load_npz(self.matrix_path + '/B_reduced_tr.npz').tocsc()
         self.train_P = sparse.load_npz(self.matrix_path + '/P_reduced_tr.npz').tocsc()
         self.test_A = sparse.load_npz(self.matrix_path + '/A_reduced_tst.npz').tocsr()
-        self.train_A_csc = self.train_A.tocsc(copy=True)  
+        self.train_A_csc = self.train_A.tocsc(copy=True) 
+        self.num_train = self.train_A.shape[0]
         
         self.train_label = pd.read_csv(self.matrix_path + '/meta_tr.csv', index_col=None).rename(columns={'Unnamed: 0':'app_id'}).set_index('app_id')['label'].to_dict()
         self.test_label = pd.read_csv(self.matrix_path + '/meta_tst.csv', index_col=None).rename(columns={'Unnamed: 0':'app_id'}).set_index('app_id')['label'].to_dict()
@@ -223,7 +227,7 @@ class word2vec(object):
     def read_label(self, app_number):
         number = int(app_number.split('_')[1])
         
-        if number > 1334:
+        if number > self.num_train - 1:
             if self.test_label[app_number] == 'class1':
                 return 1
             else:
@@ -305,8 +309,8 @@ class word2vec(object):
         train_df[self.corpus_path.split('/')[-1].split('.cor')[0]] = self.nn_train_pred.ge(.5).view(-1).detach().numpy()*1
         test_df[self.corpus_path.split('/')[-1].split('.cor')[0]] = self.nn_test_pred.ge(.5).view(-1).detach().numpy()*1
 
-        train_directory = '../data/processed/meta_tr_w2v_' + self.corpus_path.split('/')[-1].split('.cor')[0] + '.csv'
-        test_directory = '../data/processed/meta_tst_w2v_' + self.corpus_path.split('/')[-1].split('.cor')[0] + '.csv'
+        train_directory = './data/processed/meta_tr_w2v_' + self.corpus_path.split('/')[-1].split('.cor')[0] + '.csv'
+        test_directory = './data/processed/meta_tst_w2v_' + self.corpus_path.split('/')[-1].split('.cor')[0] + '.csv'
         
         train_df.to_csv(train_directory, index=True)
         print("Saved: " + train_directory)
@@ -347,7 +351,7 @@ def round_tensor(t, decimal_places=3):
 # Helper function in reduce dimensions for colors on the graph
 def label_classifier(model, app_number):
     number = int(app_number.split('_')[1])
-    if number > 1334:
+    if number > model.num_train - 1:
         if model.test_label[app_number] == 'class1':
             return 3  #test_malware
         else:
@@ -399,3 +403,18 @@ def plot_with_plotly(df, graph_title):
     
 def cosine(u, v):
     return np.dot(u, v)/(np.linalg.norm(u)* np.linalg.norm(v))
+
+
+def word2vec_main():
+    matrix_path = utils.PROC_DIR
+    corpus_path = os.path.join(utils.PROC_DIR, 'walks', 'word2vec_ABPBA_reduced.cor')
+
+    model = word2vec(matrix_path, corpus_path)
+    model.load_matrix()
+    model.generate_corpus("ABPBA", 100, 50)
+    model.create_model()
+    model.predict_embeddings()
+    model.plot_embeddings()
+    model.train_nn(num_epoch=100)
+    model.evaluate()
+    model.save_result()

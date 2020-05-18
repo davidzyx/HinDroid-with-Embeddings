@@ -5,6 +5,8 @@ from src.utils import prep_dir, clean_raw, clean_features, clean_processed
 from src.data.get_data import get_data
 from src.features.build_features import build_features, reduce_apis
 from src.models import hindroid
+from src.features.n2v import node2vec_main
+from src.features.w2v import word2vec_main
 
 
 DATA_PARAMS = 'config/data-params.json'
@@ -20,11 +22,14 @@ def load_params(fp):
 
 def main(targets):
 
-    if 'test' in targets:
+    if 'test-project' in targets:
         cfg = load_params(TEST_PARAMS)
         prep_dir(**cfg)
         get_data(**cfg)
         build_features(**cfg)
+        reduce_apis()
+        node2vec_main()
+        word2vec_main()
         return
 
     if 'data' in targets:
@@ -50,6 +55,12 @@ def main(targets):
 
     if 'reduce' in targets:
         reduce_apis()
+
+    if 'node2vec' in targets:
+        node2vec_main()
+
+    if 'word2vec' in targets:
+        word2vec_main()
 
     if 'model' in targets:
         hindroid.run(**cfg)

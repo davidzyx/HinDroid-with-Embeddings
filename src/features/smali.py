@@ -239,7 +239,7 @@ class HINProcess():
 
     def shuffle_split(self):
         len_apps = len(self.APP_uid)
-        np.random.seed(0)
+        np.random.seed(1)
         shfld_apps = np.random.choice(np.arange(len_apps), len_apps, replace=False)
         cutoff = int(len_apps * self.test_size)
         print(f'Number of apps: {len_apps}, cutoff: {cutoff}')

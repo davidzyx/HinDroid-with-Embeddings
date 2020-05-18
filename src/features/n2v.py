@@ -2,6 +2,10 @@ from tqdm import tqdm
 import numpy as np
 from scipy import sparse
 import os
+import gensim.models
+import pandas as pd
+
+import src.utils as utils
 
 
 class Node2Vec():
@@ -221,6 +225,8 @@ class Node2Vec():
             outfile.write(' '.join(walk) + '\n')
         outfile.close()
 
+        return fp
+
 if __name__ == '__main__':
     # indirs = ['data/processed/', '/datasets/home/51/451/yuz530/group_01/pipeline_output/']
     indirs = ['data/processed/']
@@ -249,3 +255,54 @@ if __name__ == '__main__':
         n2v_tst = Node2Vec(A_tst, B_tr, P_tr, test_offset=A_tr.shape[0])
         n2v_tst.save_corpus(outdir, n=15, p=2, q=1, walk_length=60, test=True)
 
+
+def node2vec_main():
+    indir = utils.PROC_DIR
+    outdir = os.path.join(indir, 'walks')
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
+
+    A_tr = sparse.load_npz(os.path.join(indir, 'A_reduced_tr.npz'))
+    A_tst = sparse.load_npz(os.path.join(indir, 'A_reduced_tst.npz'))
+    B_tr = sparse.load_npz(os.path.join(indir, 'B_reduced_tr.npz'))
+    P_tr = sparse.load_npz(os.path.join(indir, 'P_reduced_tr.npz'))
+
+    n2v = Node2Vec(A_tr, B_tr, P_tr)
+    corpus_path = n2v.save_corpus(outdir, n=15, p=2, q=1, walk_length=60)
+
+    # Test corpus using train B and P
+    n2v_tst = Node2Vec(A_tst, B_tr, P_tr, test_offset=A_tr.shape[0])
+    test_corpus_path = n2v_tst.save_corpus(outdir, n=15, p=2, q=1, walk_length=60, test=True)
+    
+
+    class MyCorpus(object, ):
+        """An interator that yields sentences (lists of str)."""
+        def __init__(self, corpus_path, test_corpus_path):
+            self.lines = open(corpus_path).readlines()
+            if test_corpus_path is not None:
+                self.lines += open(test_corpus_path).readlines()  # !!! Test
+
+        def __iter__(self):
+            for line in tqdm(self.lines):
+                # assume there's one document per line, tokens separated by whitespace
+                yield line.strip().split(' ')
+
+    sentences = MyCorpus(corpus_path, test_corpus_path)
+    model = gensim.models.Word2Vec(
+        sentences=sentences, size=64, sg=1, 
+        negative=5, window=3, iter=5, min_count=1
+    )
+
+    meta_tr = pd.read_csv(os.path.join(utils.PROC_DIR, 'meta_tr.csv'), index_col=0)
+    meta_tst = pd.read_csv(os.path.join(utils.PROC_DIR, 'meta_tst.csv'), index_col=0)
+
+    y_train = meta_tr.label == 'class1'
+    y_test = meta_tst.label == 'class1'
+    app_vec = np.array([model.wv[f'app_{i}'] for i in range(len(meta_tr))])
+    app_vec_tst = np.array([model.wv[f'app_{i}'] for i in range(len(meta_tr), len(meta_tr) + len(meta_tst))])
+
+    from sklearn.svm import SVC
+    svm = SVC(kernel='rbf', C=10, gamma=0.1)
+    svm.fit(app_vec, y_train)
+    print(svm.score(app_vec, y_train))
+    print(svm.score(app_vec_tst, y_test))
