@@ -144,3 +144,14 @@ def reduce_apis(n_api=1000):
     sparse.save_npz(os.path.join(utils.PROC_DIR, 'B_reduced_tr.npz'), B_tr)
     sparse.save_npz(os.path.join(utils.PROC_DIR, 'P_reduced_tr.npz'), P_tr)
     sparse.save_npz(os.path.join(utils.PROC_DIR, 'A_reduced_tst.npz'), A_tst)
+
+    # B_tst = sparse.load_npz(os.path.join(utils.PROC_DIR, 'B_tst.npz'))
+    # P_tst = sparse.load_npz(os.path.join(utils.PROC_DIR, 'P_tst.npz'))
+    # sparse.save_npz(os.path.join(utils.PROC_DIR, 'B_reduced_tst.npz'), B_tst[reduced_apis, :][:, reduced_apis])
+    # sparse.save_npz(os.path.join(utils.PROC_DIR, 'P_reduced_tst.npz'), P_tst[reduced_apis, :][:, reduced_apis])
+
+
+    # write to API.csv
+    apis = pd.read_csv(os.path.join(utils.PROC_DIR, 'APIs.csv'))
+    apis['selected'] = reduced_apis
+    apis.to_csv(os.path.join(utils.PROC_DIR, 'APIs.csv'))
