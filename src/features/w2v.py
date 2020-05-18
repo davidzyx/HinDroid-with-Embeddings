@@ -60,6 +60,9 @@ class word2vec(object):
         if metapath == "APA":
             corpus_function = self.APA(length=walk_length)
             
+        if metapath == "APBPA":
+            corpus_function = self.APBPA(length=walk_length)
+            
         f = open(self.corpus_path, 'w')
         for _ in tqdm(range(num_doc)):
             f.write(next(corpus_function) + '\n')
@@ -67,7 +70,8 @@ class word2vec(object):
            
     def create_model(self):
         sentences = MyCorpus(self.corpus_path)
-        self.model = gensim.models.Word2Vec(sentences=sentences, size=100, sg=1, negative=5, window=7, iter=3)
+        self.model = gensim.models.Word2Vec(sentences=sentences, size=256, sg=1, negative=5, window=7, iter=3)
+#         self.model = gensim.models.Word2Vec(sentences=sentences, size=100)
     
     def ABPBA(self, length=5000):
         while True:
@@ -85,6 +89,25 @@ class word2vec(object):
                 app = np.random.choice(np.nonzero(self.train_A_csc[:, api_bj])[0])
 
                 path += f' api_{api_i} api_{api_bi} api_{api_p} api_{api_bj} app_{app}'
+
+            yield path
+    
+    def APBPA(self, length=5000):
+        while True:
+
+            app = np.random.choice(np.arange(self.train_A.shape[0]))
+
+            path = f'app_{app}'
+
+            for i in range(length):
+
+                api_i = np.random.choice(np.nonzero(self.train_A[app])[1])
+                api_pi = np.random.choice(np.nonzero(self.train_P[:, api_i])[0])
+                api_b = np.random.choice(np.nonzero(self.train_B[:, api_pi])[0])
+                api_pj = np.random.choice(np.nonzero(self.train_P[:, api_b])[0])
+                app = np.random.choice(np.nonzero(self.train_A_csc[:, api_pj])[0])
+
+                path += f' api_{api_i} api_{api_pi} api_{api_b} api_{api_pj} app_{app}'
 
             yield path
             
@@ -128,8 +151,8 @@ class word2vec(object):
         df = pd.DataFrame(df_dict)
         graph_labels = {0: 'train_benign', 1: 'train_malware', 2: 'test_benign', 3: 'test_malware'}
         df = df.replace({"labels": graph_labels})
-        
-        plot_with_plotly(df)
+        graph_title = self.corpus_path.split('/')[-1].split('_')[0] + " two dimensional embeddings"
+        plot_with_plotly(df, graph_title)
         
     # Predict embeddings for application in testing set
     # Populate the embeddings into the model
@@ -144,7 +167,7 @@ class word2vec(object):
             else:
                 indexes = np.nonzero((self.train_A[j]).toarray()[0])[0]
                 all_api = self.model.wv.vocab.keys()
-                matrix = np.zeros(100)
+                matrix = np.zeros(256)
                 for i in indexes:
                     element = 'api_' + str(i)
                     if element in all_api:
@@ -162,7 +185,7 @@ class word2vec(object):
         for j in missed_app:
             indexes = np.nonzero((self.train_A[j]).toarray()[0])[0]
             all_api = self.model.wv.vocab.keys()
-            matrix = np.zeros(100)
+            matrix = np.zeros(256)
             for i in indexes:
                 element = 'api_' + str(i)
                 if element in all_api:
@@ -176,7 +199,7 @@ class word2vec(object):
         for j in range(self.test_A.shape[0]):
             indexes = np.nonzero((self.test_A[j]).toarray()[0])[0]
             all_api = self.model.wv.vocab.keys()
-            matrix = np.zeros(100)
+            matrix = np.zeros(256)
             for i in indexes:
                 element = 'api_' + str(i)
                 if element in all_api:
@@ -271,7 +294,9 @@ class word2vec(object):
         hmap.yaxis.set_ticklabels(hmap.yaxis.get_ticklabels(), rotation=0, ha='right')
         hmap.xaxis.set_ticklabels(hmap.xaxis.get_ticklabels(), rotation=30, ha='right')
         plt.ylabel('True label')
-        plt.xlabel('Predicted label');
+        plt.xlabel('Predicted label')
+        graph_title = self.corpus_path.split('/')[-1].split('_')[0] + " confusion matrix"
+        plt.title(graph_title, fontsize=20)
         
     def save_result(self):
         train_df = pd.DataFrame.from_dict(self.train_label, orient='index',columns=['labels'])
@@ -280,8 +305,8 @@ class word2vec(object):
         train_df[self.corpus_path.split('/')[-1].split('.cor')[0]] = self.nn_train_pred.ge(.5).view(-1).detach().numpy()*1
         test_df[self.corpus_path.split('/')[-1].split('.cor')[0]] = self.nn_test_pred.ge(.5).view(-1).detach().numpy()*1
 
-        train_directory = 'meta_tr_w2v_' + self.corpus_path.split('/')[-1].split('.cor')[0] + '.csv'
-        test_directory = 'meta_tst_w2v_' + self.corpus_path.split('/')[-1].split('.cor')[0] + '.csv'
+        train_directory = '../data/processed/meta_tr_w2v_' + self.corpus_path.split('/')[-1].split('.cor')[0] + '.csv'
+        test_directory = '../data/processed/meta_tst_w2v_' + self.corpus_path.split('/')[-1].split('.cor')[0] + '.csv'
         
         train_df.to_csv(train_directory, index=True)
         print("Saved: " + train_directory)
@@ -360,9 +385,9 @@ def reduce_dimensions(model):
     return x_vals, y_vals, [label_classifier(model, i) for i in labels]
 
 
-def plot_with_plotly(df):
+def plot_with_plotly(df, graph_title):
     
-    fig = px.scatter(df, x="x_vals", y="y_vals", color="labels", title="ABPBA two dimensional embeddings")
+    fig = px.scatter(df, x="x_vals", y="y_vals", color="labels", title=graph_title)
     fig.show()
 #     data = [trace]
 
