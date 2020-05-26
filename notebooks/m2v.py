@@ -75,7 +75,6 @@ class Metapath2Vec():
                         next_index = self.A_api(appNumber, path)
                     else:
                         next_index = self.A_app(next_index, path)
-
                 if(i == 'B'):
                     next_index = self.B_api(next_index, path)
                 if(i == 'P'):
