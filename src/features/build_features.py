@@ -152,6 +152,6 @@ def reduce_apis(n_api=1000):
 
 
     # write to API.csv
-    apis = pd.read_csv(os.path.join(utils.PROC_DIR, 'APIs.csv'))
+    apis = pd.read_csv(os.path.join(utils.PROC_DIR, 'APIs.csv'), index_col=0)
     apis['selected'] = reduced_apis
     apis.to_csv(os.path.join(utils.PROC_DIR, 'APIs.csv'))
