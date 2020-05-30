@@ -24,6 +24,42 @@ python run.py data ingest process model
 
 `process` target will save `.npz` files in `data/processed/` for generating various embeddings.
 
+## System Prerequisites and Definitions
+
+- APK - Executable file for Android
+![executables](https://i.imgur.com/RrGNIoG.png)
+- Smali code - Human readable code decompiled from Dalvik bytecode contained the APK
+- Heterogeneous Information Network (HIN) - A graph where its nodes may not be of the same type
+- API Extraction
+  - Use regex to match specific patterns
+  - API calls and method blocks
+![api](https://i.imgur.com/nx3rKKv.png)
+
+## HinDroid
+
+Our project is an improvement and exploration of different embedding techniques based on a previous paper - HinDroid. Therefore, some techniques and basic data structures are based on what HinDroid outlined, such as how data was extracted and structured.
+
+Data was extracted from APKs downloaded from APKPure.com, and the smali code was extracted by using APKTool to reverse engineer the APKs.
+
+3 matrices were borrowed from HinDroid: A, B, and P matrix. Below you will see a description for each matrix and an example.
+
+**A** matrix tells us information about whether APIs are within the same app. Each API within an app will have 1, else it will have 0.
+![A matrix](https://i.imgur.com/fGIEH9c.png)
+
+**B** matrix tells us information about whether APIs are in the same code block. If API_1 and API_2 are in the same code block then the corresponding spot in the matrix will have 1, else it will have 0.
+![B matrix](https://i.imgur.com/5MJL9ff.png)
+
+**C** matrix tells us information about whether APIs are in the same package. If API_1 and API_2 are in the same package then the corresponding spot in the matrix will have 1, else it will have 0.
+![C matrix](https://i.imgur.com/X9n40VE.png)
+
+## Embedding Techniques
+
+### Word2Vec
+
+### Node2Vec
+
+### Metapath2Vec
+
 ## Results
 
 HinDroid:
