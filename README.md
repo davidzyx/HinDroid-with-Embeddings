@@ -44,12 +44,15 @@ Data was extracted from APKs downloaded from APKPure.com, and the smali code was
 3 matrices were borrowed from HinDroid: A, B, and P matrix. Below you will see a description for each matrix and an example.
 
 **A** matrix tells us information about whether APIs are within the same app. Each API within an app will have 1, else it will have 0.
+
 ![A matrix](https://i.imgur.com/fGIEH9c.png)
 
 **B** matrix tells us information about whether APIs are in the same code block. If API_1 and API_2 are in the same code block then the corresponding spot in the matrix will have 1, else it will have 0.
+
 ![B matrix](https://i.imgur.com/5MJL9ff.png)
 
 **C** matrix tells us information about whether APIs are in the same package. If API_1 and API_2 are in the same package then the corresponding spot in the matrix will have 1, else it will have 0.
+
 ![C matrix](https://i.imgur.com/X9n40VE.png)
 
 ## Embedding Techniques
@@ -60,7 +63,27 @@ Data was extracted from APKs downloaded from APKPure.com, and the smali code was
 
 ### Metapath2Vec
 
+![metapath2vec equation](https://i.imgur.com/AINz4lr.png) (1)
+
+Metapath2Vec is used as a technique of sampling our next node. We sample our next node using equation (1). Let's use an example to illustrate the process.
+
+Imagine that we have these matrices set up, and our defined metapath is **ABA**. Our metapath-chosen sentence will look like "app_A API_Y API_Z app_B".
+![Matrices](https://i.imgur.com/XIYFrc3.png)
+
+Steps:
+
+1. We choose an app. In this case there are only two apps. Suppose we choose app_0.
+![app_0](https://i.imgur.com/xWePMRv.png)
+2. Our first path in out metapath is **A**. So, now we will look in the **A** matrix and the row for app_0. We see that app_0 contains API_1 and API_2. Therefore we will sample API_1 and API_2 with a uniform probability, where each API has a probability of 0.5 of getting chosen. Let's suppose we choose API_2.
+![api-1](https://i.imgur.com/uFUIrQ3.png)
+3. Now out path moves on to **B**. We go to the **B** matrix and look at the row for API_2. We see that we can either choose API_1 or API_2. They both will have a probability of 0.5 of getting chosen. Let's suppose we choose API_1.
+![api-2](https://i.imgur.com/lwWLAg8.png)
+4. Our path moves to the last spot in the metapath, which is **A**. We go back to our A matrix. Look at the column for API_1, and we see that we are able to choose either app_0 or app_1. Suppose we choose app_1. Our resulting sentence would look like the following.
+![final path](https://i.imgur.com/iGzXhfW.png)
+
 ## Results
+
+Let's take a look at the different accuracies for the original HinDroid approach and the HinDroid approach with additional embedding techniques.
 
 HinDroid:
 
@@ -95,3 +118,13 @@ Metapath2Vec:
 ### Class Labels Separation
 
 ![Labels](https://i.imgur.com/cdFOD6m.jpg)
+
+## Conclusion
+
+## References
+
+[1] Passi, Harpreet. Introduction to Malware: Definition, Attacks, Types and Analysis. GreyCampus
+[2] Hou, Shifu and Ye, Yanfang and Song, Yangqiu and Abdulhayoglu, Melih. 2017. HinDroid: An Intelligent Android Malware Detection System Based on Structured Heterogeneous Information Network.
+[3] Mikolov, Tomas and Corrado, Greg and Chen, Kai and Dean, Jeffrey. 2013. Efficient Estimation of Word Representations in Vector Space.
+[4] Grover, Aditya and Leskovec, Jure. 2016. node2vec: Scalable Feature Learning for Networks.
+[5] Dong, Yuxiao and Chawla, Nitesh and Swami, Ananthram. 2017. metapath2vec: Scalable Representation Learning for Heterogeneous 
