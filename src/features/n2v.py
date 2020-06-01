@@ -18,6 +18,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+from sklearn.metrics import confusion_matrix
+
 class Node2Vec():
     def __init__(self, outdir, n=1, p=2, q=1, walk_length=100, test=False, test_offset=0):
         self.offset = test_offset
@@ -254,10 +259,12 @@ class Node2Vec():
                     for node in walk
                 ]
 
+        outfile = open(self.corpus_path, 'w')
+
         print('saving..')
         for walk in tqdm(walks):
-            self.corpus_path.write(' '.join(walk) + '\n')
-        self.corpus_path.close()
+            outfile.write(' '.join(walk) + '\n')
+        outfile.close()
 
     def create_model(self):
         sentences = MyCorpus(self.corpus_path)
@@ -318,8 +325,68 @@ class Node2Vec():
         graph_labels = {0: 'train_benign', 1: 'train_malware', 2: 'test_benign', 3: 'test_malware'}
         df = df.replace({"labels": graph_labels})
         graph_title = self.corpus_path.split('/')[-1].split('_')[0] + " two dimensional embeddings"
-        plot_with_plotly(df, graph_title) 
+        plot_with_plotly(df, graph_title)
 
+    def train_nn(self, num_epoch=5000): 
+        train_X = torch.tensor(self.train_embeddings).float()
+        test_X = torch.tensor(self.test_embeddings).float()
+        
+        train_Y = torch.tensor(self.train_labels).float()
+        test_Y = torch.tensor(self.test_labels).float()
+
+        net = Net(train_X.shape[1])
+        criterion = torch.nn.MSELoss(reduction='mean')
+        optimizer = torch.optim.Adamax(net.parameters(), lr=0.0001)
+
+        y_pred = None
+        y_test_pred = None
+
+        for epoch in range(num_epoch):  # loop over the dataset multiple times
+
+            running_loss = 0.0
+
+            y_pred = net(train_X)
+            y_pred = torch.squeeze(y_pred)
+
+            train_loss = criterion(y_pred, train_Y)
+
+            if epoch % 1000 == 0:
+                train_acc = calculate_accuracy(train_Y, y_pred)
+
+                y_test_pred = net(test_X)
+                y_test_pred = torch.squeeze(y_test_pred)
+
+                test_loss = criterion(y_test_pred, test_Y)
+
+                test_acc = calculate_accuracy(test_Y, y_test_pred)
+                print(
+                    f'''epoch {epoch}
+                    Train set - loss: {round_tensor(train_loss)}, accuracy: {round_tensor(train_acc)}
+                    Test  set - loss: {round_tensor(test_loss)}, accuracy: {round_tensor(test_acc)}
+                ''')
+
+            optimizer.zero_grad()
+
+            train_loss.backward()
+
+            optimizer.step()
+
+        print('Finished Training')
+
+        self.nn_train_pred = y_pred
+        self.nn_test_pred = y_test_pred
+
+    def evaluate(self):
+        cm = confusion_matrix(torch.tensor(self.test_labels).float().numpy()*1, self.nn_test_pred.ge(.5).view(-1).detach().numpy()*1)
+        df_cm = pd.DataFrame(cm, index=['benign', 'malware'], columns=['benign', 'malware'])
+
+        hmap = sns.heatmap(df_cm, annot=True, fmt="d")
+        hmap.yaxis.set_ticklabels(hmap.yaxis.get_ticklabels(), rotation=0, ha='right')
+        hmap.xaxis.set_ticklabels(hmap.xaxis.get_ticklabels(), rotation=30, ha='right')
+        plt.ylabel('True label')
+        plt.xlabel('Predicted label')
+        graph_title = self.corpus_path.split('/')[-1].split('_')[0] + " confusion matrix"
+        plt.title(graph_title, fontsize=20)
 
 if __name__ == '__main__':
     # indirs = ['data/processed/', '/datasets/home/51/451/yuz530/group_01/pipeline_output/']
@@ -351,6 +418,7 @@ if __name__ == '__main__':
 
 
 def node2vec_main():
+    indirs = 'data/processed/'
     outdir = os.path.join(indir, 'walks')
     if not os.path.exists(outdir):
         os.mkdir(outdir)
@@ -361,6 +429,8 @@ def node2vec_main():
     n2v.create_model()
     n2v.predict_embeddings()
     n2v.plot_embeddings()
+    n2v.train_nn(num_epoch=7000)
+    n2v.evaluate()
 
     # meta_tr = pd.read_csv(os.path.join(utils.PROC_DIR, 'meta_tr.csv'), index_col=0)
     # meta_tst = pd.read_csv(os.path.join(utils.PROC_DIR, 'meta_tst.csv'), index_col=0)
@@ -401,3 +471,10 @@ class Net(nn.Module):
         )
     def forward(self, x):
         return torch.sigmoid(self.classifier(x))
+
+def calculate_accuracy(y_true, y_pred):
+    predicted = y_pred.ge(.5).view(-1)
+    return (y_true == predicted).sum().float() / len(y_true)
+
+def round_tensor(t, decimal_places=3):
+    return round(t.item(), decimal_places)
