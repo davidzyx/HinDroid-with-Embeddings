@@ -59,6 +59,28 @@ Data was extracted from APKs downloaded from APKPure.com, and the smali code was
 
 ### Word2Vec
 
+Word2Vec is a powerful approach to generate embeddings for words using its context in a corpus. Decades of work and research using this idea has led to state of the art models powering the technologies we are using everyday such as Siri, Google Translate, next word prediction on our smartphone keyboard and etc. If you are interested of knowing more, [this](http://jalammar.github.io/illustrated-word2vec/) great blog post provide detailed explanation with excellent graphical example. 
+
+As Word2Vec cannot be directly applied to application source code and matrices from HinDroid, our data ingestion pipeline generates text corpus by traversing the graphs following an user defined metapaths and the length of a random walk. Using a metapath `ABPBA` with random walk length 5000, the text corpus may look like 
+
+`app_3 -> api_500 -> api_321 -> api_234 -> api_578 -> app_321 -> api_123…`
+
+where `app_3` and `api_500` are connected by matrix A, api_500 and api_321 are connected by matrix B and so on. During each random walk, the metapath will be repeated until the length of the walk is met by randomly selecting an application or api node that is directly connected to the starting node. In the text corpus, an application node will always be followed by an api node, where an api node will be followed by an application node only if the next matrix in the metapath is matrix A. 
+ 
+In a graph where there are two types of nodes: application and api, Word2Vec is the first approach that we attempt to capture the relationship beyond application and apis that have a direct connection in the graph. This traditional and powerful NLP embeddings techniques helps us to learn the similarity between applications not just limited to the shared api, and also the ability to identify the clusters connection between application and api that do not always have a direct connection. Using gensim’s word2vec model, we are able to generate vector embeddings for each application and api found in the text corpus. We successfully converted decompiled Android source code into a vector of numbers for each application and this information can be easily used in a machine learning model.
+ 
+To evaluate the effectiveness of the generated embeddings, we visualize the embedding clusters by applying dimensionality reduction into two dimensional vectors. The embedding visualization for metapath ABA, APA, ABPBA and APBPA are shown below:
+
+![ABA](https://i.imgur.com/a6DBPmO.png)
+
+![ABPBA](https://i.imgur.com/4lW3npg.png)
+
+![APA](https://i.imgur.com/TnPyamV.png)
+
+![APBPA](https://i.imgur.com/NZq0zxO.png)
+
+The graph shows promising results and the clusters are separated nicely between benign and malware applications. As word2vec does not generate embeddings for unseen words, test applications in our case, we trained a decision tree regressor using the true embeddings for training application as the labels, and the average of the embeddings of each application’s associated api as the training data. Using this regressor we are able to generate embeddings for test applications using its associated api appear in the training corpus.
+
 ### Node2Vec
 
 ### Metapath2Vec
