@@ -143,10 +143,14 @@ Metapath2Vec:
 
 ## Conclusion
 
+From our initial testing, all of our proposed graph embedding techniques are able to achieve similar accuracy and metrics scores. Although it does not seem that the different graph embeddings obtained a higher accuracy score, we believe that using these other graph embedding techniques not only matches with the results of HinDroid, but are also more robust in the sense that hackers are not able easily rearrange APIs to avoid detection.  
+
+There is definitely further research to do. One being where dummy nodes are added. This will provide us with more evidence of the robustness of the different graph techniques used. Also, we should test out several more different metap-paths. We can test which meta-paths work the best and why it works.
+
 ## References
 
-[1] Passi, Harpreet. Introduction to Malware: Definition, Attacks, Types and Analysis. GreyCampus
-[2] Hou, Shifu and Ye, Yanfang and Song, Yangqiu and Abdulhayoglu, Melih. 2017. HinDroid: An Intelligent Android Malware Detection System Based on Structured Heterogeneous Information Network.
-[3] Mikolov, Tomas and Corrado, Greg and Chen, Kai and Dean, Jeffrey. 2013. Efficient Estimation of Word Representations in Vector Space.
-[4] Grover, Aditya and Leskovec, Jure. 2016. node2vec: Scalable Feature Learning for Networks.
-[5] Dong, Yuxiao and Chawla, Nitesh and Swami, Ananthram. 2017. metapath2vec: Scalable Representation Learning for Heterogeneous 
+[1] Passi, Harpreet. Introduction to Malware: Definition, Attacks, Types and Analysis. GreyCampus  
+[2] Hou, Shifu and Ye, Yanfang and Song, Yangqiu and Abdulhayoglu, Melih. 2017. HinDroid: An Intelligent Android Malware Detection System Based on Structured Heterogeneous Information Network.  
+[3] Mikolov, Tomas and Corrado, Greg and Chen, Kai and Dean, Jeffrey. 2013. Efficient Estimation of Word Representations in Vector Space.  
+[4] Grover, Aditya and Leskovec, Jure. 2016. node2vec: Scalable Feature Learning for Networks.  
+[5] Dong, Yuxiao and Chawla, Nitesh and Swami, Ananthram. 2017. metapath2vec: Scalable Representation Learning for Heterogeneous Networks  
