@@ -94,13 +94,13 @@ Imagine that we have these matrices set up, and our defined metapath is **ABA**.
 
 Steps:
 
-1. We choose an app. In this case there are only two apps. Suppose we choose app_0.
+1. We choose an app. In this case there are only two apps. Suppose we choose app_0.  
 ![app_0](https://i.imgur.com/xWePMRv.png)
-2. Our first path in out metapath is **A**. So, now we will look in the **A** matrix and the row for app_0. We see that app_0 contains API_1 and API_2. Therefore we will sample API_1 and API_2 with a uniform probability, where each API has a probability of 0.5 of getting chosen. Let's suppose we choose API_2.
+2. Our first path in out metapath is **A**. So, now we will look in the **A** matrix and the row for app_0. We see that app_0 contains API_1 and API_2. Therefore we will sample API_1 and API_2 with a uniform probability, where each API has a probability of 0.5 of getting chosen. Let's suppose we choose API_2.  
 ![api-1](https://i.imgur.com/uFUIrQ3.png)
-3. Now out path moves on to **B**. We go to the **B** matrix and look at the row for API_2. We see that we can either choose API_1 or API_2. They both will have a probability of 0.5 of getting chosen. Let's suppose we choose API_1.
+3. Now out path moves on to **B**. We go to the **B** matrix and look at the row for API_2. We see that we can either choose API_1 or API_2. They both will have a probability of 0.5 of getting chosen. Let's suppose we choose API_1.  
 ![api-2](https://i.imgur.com/lwWLAg8.png)
-4. Our path moves to the last spot in the metapath, which is **A**. We go back to our A matrix. Look at the column for API_1, and we see that we are able to choose either app_0 or app_1. Suppose we choose app_1. Our resulting sentence would look like the following.
+4. Our path moves to the last spot in the metapath, which is **A**. We go back to our A matrix. Look at the column for API_1, and we see that we are able to choose either app_0 or app_1. Suppose we choose app_1. Our resulting sentence would look like the following.  
 ![final path](https://i.imgur.com/iGzXhfW.png)
 
 ## Results
