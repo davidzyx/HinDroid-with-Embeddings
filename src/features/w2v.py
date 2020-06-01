@@ -239,7 +239,7 @@ class word2vec(object):
             else:
                 return 0
             
-    def train_nn(self, num_epoch=10000 ):
+    def train_nn(self, num_epoch=10000):
         train_X = torch.tensor(self.train_embeddings).float()
         test_X = torch.tensor(self.test_embeddings).float()
         
@@ -247,9 +247,9 @@ class word2vec(object):
         test_Y = torch.tensor(self.test_labels).float()
         
         net = Net(train_X.shape[1])
-        # criterion = nn.CrossEntropyLoss()
         criterion = nn.BCELoss()
-        # optimizer = optim.SGD(net.parameters(), lr=0.01)
+        # criterion = torch.nn.MSELoss(reduction='mean')
+        # optimizer = torch.optim.Adamax(net.parameters(), lr=0.0001)
         optimizer = optim.Adam(net.parameters(), lr=0.0001)
         
         y_pred = None
@@ -340,6 +340,20 @@ class Net(nn.Module):
         x = F.leaky_relu(self.fc1(x))
         x = F.leaky_relu(self.fc2(x))
         return torch.sigmoid(self.fc3(x))
+
+# class Net(nn.Module):
+#     def __init__(self, n_features):
+#         super(Net, self).__init__()
+#         self.classifier = nn.Sequential(
+#             nn.Linear(n_features, 512),
+#             nn.LeakyReLU(inplace=True),
+#             nn.Dropout(0.2),
+#             nn.Linear(512, 512),
+#             nn.LeakyReLU(inplace=True),
+#             nn.Linear(512,1)
+#         )
+#     def forward(self, x):
+#         return torch.sigmoid(self.classifier(x))
 
 def calculate_accuracy(y_true, y_pred):
     predicted = y_pred.ge(.5).view(-1)

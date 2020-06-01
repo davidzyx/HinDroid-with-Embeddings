@@ -7,15 +7,43 @@ import pandas as pd
 
 import src.utils as utils
 
+from sklearn.ensemble import RandomForestRegressor
+
+from src.features.w2v import reduce_dimensions, plot_with_plotly
+
+import torch
+import torchvision
+import torchvision.transforms as transforms
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+from sklearn.metrics import confusion_matrix
 
 class Node2Vec():
-    def __init__(self, A_tr, B_tr, P_tr, test_offset=0):
-        assert 'csr_matrix' in str(type(A_tr))
-        self.A_tr_csr = A_tr
-        self.A_tr_csc = A_tr.tocsc(copy=True)
-        self.B_tr = B_tr
-        self.P_tr = P_tr
+    def __init__(self, indir, n=1, p=2, q=1, walk_length=100, test=False, test_offset=0):
         self.offset = test_offset
+
+        outdir = os.path.join(indir, 'walks')
+        if not os.path.exists(outdir):
+            os.mkdir(outdir)
+
+        fp = os.path.join(
+            outdir, f'node2vec_n={n}_p={p}_q={q}_wl={walk_length}.cor'
+        )
+        if test:
+            fp = os.path.join(
+                outdir, f'node2vec_n={n}_p={p}_q={q}_wl={walk_length}_test.cor'
+            )
+        self.corpus_path = fp
+
+        self.n = n
+        self.p = p 
+        self.q = q 
+        self.walk_length = walk_length
     
     def get_api_neighbors_A(self, app):
         """Get all API neighbors of an APP from A matrix"""
@@ -196,18 +224,33 @@ class Node2Vec():
                 walks.append(path)
 
         return walks
-    
-    def save_corpus(self, outdir, n=1, p=2, q=1, walk_length=100, test=False):
-        fp = os.path.join(
-            outdir, f'node2vec_n={n}_p={p}_q={q}_wl={walk_length}.cor'
-        )
-        if test:
-            fp = os.path.join(
-                outdir, f'node2vec_n={n}_p={p}_q={q}_wl={walk_length}_test.cor'
-            )
-        outfile = open(fp, 'w')
 
-        walks = self.perform_walks(n=n, p=p, q=q, walk_length=walk_length)
+    def load_matrix(self):
+        # indir = utils.PROC_DIR
+        indir = "../data/processed"
+        A_tr = sparse.load_npz(os.path.join(indir, 'A_reduced_tr.npz'))
+        A_tst = sparse.load_npz(os.path.join(indir, 'A_reduced_tst.npz'))
+        B_tr = sparse.load_npz(os.path.join(indir, 'B_reduced_tr.npz'))
+        P_tr = sparse.load_npz(os.path.join(indir, 'P_reduced_tr.npz'))
+
+        meta_tr = pd.read_csv(os.path.join(indir, 'meta_tr.csv'), index_col=0)
+        meta_tst = pd.read_csv(os.path.join(indir, 'meta_tst.csv'), index_col=0)
+
+        assert 'csr_matrix' in str(type(A_tr))
+        self.A_tr_csr = A_tr
+        self.A_tr_csc = A_tr.tocsc(copy=True)
+        self.A_tst = A_tst
+        self.B_tr = B_tr
+        self.P_tr = P_tr
+        self.train_label = pd.read_csv(os.path.join(indir, 'meta_tr.csv'), index_col=None).rename(columns={'Unnamed: 0':'app_id'}).set_index('app_id')['label'].to_dict()
+        self.test_label = pd.read_csv(os.path.join(indir, 'meta_tst.csv'), index_col=None).rename(columns={'Unnamed: 0':'app_id'}).set_index('app_id')['label'].to_dict()
+        self.meta_tr = meta_tr
+        self.meta_tst = meta_tst
+        self.num_train = A_tr.shape[0]
+    
+    def save_corpus(self):
+
+        walks = self.perform_walks(n=self.n, p=self.p, q=self.q, walk_length=self.walk_length)
 
         # add an offset for every app if in test mode
         if self.offset > 0:
@@ -220,12 +263,134 @@ class Node2Vec():
                     for node in walk
                 ]
 
+        outfile = open(self.corpus_path, 'w')
+
         print('saving..')
         for walk in tqdm(walks):
             outfile.write(' '.join(walk) + '\n')
         outfile.close()
 
-        return fp
+    def create_model(self):
+        sentences = MyCorpus(self.corpus_path)
+        self.model = gensim.models.Word2Vec(
+            sentences=sentences, size=64, sg=1, 
+            negative=5, window=3, iter=5, min_count=1
+        )
+
+    def predict_embeddings(self):
+        X = []
+        Y = []
+        train_labels = []
+        for j in range(self.A_tr_csr.shape[0]):
+
+            indexes = np.nonzero((self.A_tr_csr[j]).toarray()[0])[0]
+            all_api = self.model.wv.vocab.keys()
+            matrix = np.zeros(64)
+            for i in indexes:
+                element = 'api_' + str(i)
+                if element in all_api:
+                    matrix += self.model.wv[element]
+            matrix /= len(all_api)
+            X.append(matrix)
+            Y.append(self.model.wv['app_' + str(j)])
+            train_labels.append('app_' + str(j))
+
+        regressor = RandomForestRegressor(n_estimators=500, oob_score=True, random_state=100).fit(X, Y)
+
+        test_X = []
+        test_labels = []
+        for j in range(self.A_tst.shape[0]):
+            indexes = np.nonzero((self.A_tst[j]).toarray()[0])[0]
+            all_api = self.model.wv.vocab.keys()
+            matrix = np.zeros(64)
+            for i in indexes:
+                element = 'api_' + str(i)
+                if element in all_api:
+                    matrix += self.model.wv[element]
+            matrix /= len(all_api)
+            test_X.append(matrix)
+            test_labels.append('app_' + str(j + self.A_tr_csr.shape[0]))
+
+        embeddings = regressor.predict(test_X)
+
+        for i in range(len(test_labels)):
+            self.model.wv[test_labels[i]] = embeddings[i]
+
+        self.train_embeddings = Y
+        self.test_embeddings = embeddings
+        self.train_labels = self.meta_tr.label == 'class1'
+        self.test_labels = self.meta_tst.label == 'class1'
+
+    def plot_embeddings(self):
+        x_vals, y_vals, labels = reduce_dimensions(self)
+        
+        df_dict = {'x_vals': x_vals, 'y_vals': y_vals, 'labels': labels}
+        df = pd.DataFrame(df_dict)
+        graph_labels = {0: 'train_benign', 1: 'train_malware', 2: 'test_benign', 3: 'test_malware'}
+        df = df.replace({"labels": graph_labels})
+        graph_title = self.corpus_path.split('/')[-1].split('_')[0] + " two dimensional embeddings"
+        plot_with_plotly(df, graph_title)
+
+    def train_nn(self, num_epoch=5000): 
+        train_X = torch.tensor(self.train_embeddings).float()
+        test_X = torch.tensor(self.test_embeddings).float()
+        
+        train_Y = torch.tensor(self.train_labels).float()
+        test_Y = torch.tensor(self.test_labels).float()
+
+        net = Net(train_X.shape[1])
+        criterion = torch.nn.MSELoss(reduction='mean')
+        optimizer = torch.optim.Adamax(net.parameters(), lr=0.0001)
+
+        y_pred = None
+        y_test_pred = None
+
+        for epoch in range(num_epoch):  # loop over the dataset multiple times
+
+            running_loss = 0.0
+
+            y_pred = net(train_X)
+            y_pred = torch.squeeze(y_pred)
+
+            train_loss = criterion(y_pred, train_Y)
+
+            if epoch % 1000 == 0:
+                train_acc = calculate_accuracy(train_Y, y_pred)
+
+                y_test_pred = net(test_X)
+                y_test_pred = torch.squeeze(y_test_pred)
+
+                test_loss = criterion(y_test_pred, test_Y)
+
+                test_acc = calculate_accuracy(test_Y, y_test_pred)
+                print(
+                    f'''epoch {epoch}
+                    Train set - loss: {round_tensor(train_loss)}, accuracy: {round_tensor(train_acc)}
+                    Test  set - loss: {round_tensor(test_loss)}, accuracy: {round_tensor(test_acc)}
+                ''')
+
+            optimizer.zero_grad()
+
+            train_loss.backward()
+
+            optimizer.step()
+
+        print('Finished Training')
+
+        self.nn_train_pred = y_pred
+        self.nn_test_pred = y_test_pred
+
+    def evaluate(self):
+        cm = confusion_matrix(torch.tensor(self.test_labels).float().numpy()*1, self.nn_test_pred.ge(.5).view(-1).detach().numpy()*1)
+        df_cm = pd.DataFrame(cm, index=['benign', 'malware'], columns=['benign', 'malware'])
+
+        hmap = sns.heatmap(df_cm, annot=True, fmt="d")
+        hmap.yaxis.set_ticklabels(hmap.yaxis.get_ticklabels(), rotation=0, ha='right')
+        hmap.xaxis.set_ticklabels(hmap.xaxis.get_ticklabels(), rotation=30, ha='right')
+        plt.ylabel('True label')
+        plt.xlabel('Predicted label')
+        graph_title = self.corpus_path.split('/')[-1].split('_')[0] + " confusion matrix"
+        plt.title(graph_title, fontsize=20)
 
 if __name__ == '__main__':
     # indirs = ['data/processed/', '/datasets/home/51/451/yuz530/group_01/pipeline_output/']
@@ -241,7 +406,7 @@ if __name__ == '__main__':
         B_tr = sparse.load_npz(os.path.join(indir, 'B_reduced_tr.npz'))
         P_tr = sparse.load_npz(os.path.join(indir, 'P_reduced_tr.npz'))
 
-        n2v = Node2Vec(A_tr, B_tr, P_tr)
+        n2v = Node2Vec()
 
         # pod 1
         # n2v.save_corpus(outdir, n=20, p=2, q=1, walk_length=300)
@@ -252,57 +417,64 @@ if __name__ == '__main__':
         # n2v.save_corpus(outdir, n=50, p=2, q=1, walk_length=400)
 
         # Test corpus using train B and P
-        n2v_tst = Node2Vec(A_tst, B_tr, P_tr, test_offset=A_tr.shape[0])
+        n2v_tst = Node2Vec(test_offset=A_tr.shape[0])
         n2v_tst.save_corpus(outdir, n=15, p=2, q=1, walk_length=60, test=True)
 
 
 def node2vec_main():
-    indir = utils.PROC_DIR
-    outdir = os.path.join(indir, 'walks')
-    if not os.path.exists(outdir):
-        os.mkdir(outdir)
-
-    A_tr = sparse.load_npz(os.path.join(indir, 'A_reduced_tr.npz'))
-    A_tst = sparse.load_npz(os.path.join(indir, 'A_reduced_tst.npz'))
-    B_tr = sparse.load_npz(os.path.join(indir, 'B_reduced_tr.npz'))
-    P_tr = sparse.load_npz(os.path.join(indir, 'P_reduced_tr.npz'))
-
-    n2v = Node2Vec(A_tr, B_tr, P_tr)
-    corpus_path = n2v.save_corpus(outdir, n=15, p=2, q=1, walk_length=60)
-
-    # Test corpus using train B and P
-    n2v_tst = Node2Vec(A_tst, B_tr, P_tr, test_offset=A_tr.shape[0])
-    test_corpus_path = n2v_tst.save_corpus(outdir, n=15, p=2, q=1, walk_length=60, test=True)
     
+    n2v = Node2Vec(n=15, p=2, q=1, walk_length=60)
+    n2v.load_matrix()
+    n2v.save_corpus()
+    n2v.create_model()
+    n2v.predict_embeddings()
+    n2v.plot_embeddings()
+    n2v.train_nn(num_epoch=7000)
+    n2v.evaluate()
 
-    class MyCorpus(object, ):
-        """An interator that yields sentences (lists of str)."""
-        def __init__(self, corpus_path, test_corpus_path):
-            self.lines = open(corpus_path).readlines()
-            if test_corpus_path is not None:
-                self.lines += open(test_corpus_path).readlines()  # !!! Test
+    # meta_tr = pd.read_csv(os.path.join(utils.PROC_DIR, 'meta_tr.csv'), index_col=0)
+    # meta_tst = pd.read_csv(os.path.join(utils.PROC_DIR, 'meta_tst.csv'), index_col=0)
 
-        def __iter__(self):
-            for line in tqdm(self.lines):
-                # assume there's one document per line, tokens separated by whitespace
-                yield line.strip().split(' ')
+    # y_train = meta_tr.label == 'class1'
+    # y_test = meta_tst.label == 'class1'
+    # app_vec = np.array([n2v.model.wv[f'app_{i}'] for i in range(len(meta_tr))])
+    # app_vec_tst = np.array([n2v_tst.model.wv[f'app_{i}'] for i in range(len(meta_tr), len(meta_tr) + len(meta_tst))])
 
-    sentences = MyCorpus(corpus_path, test_corpus_path)
-    model = gensim.models.Word2Vec(
-        sentences=sentences, size=64, sg=1, 
-        negative=5, window=3, iter=5, min_count=1
-    )
+    # from sklearn.svm import SVC
+    # svm = SVC(kernel='rbf', C=10, gamma=0.1)
+    # svm.fit(app_vec, y_train)
+    # print(svm.score(app_vec, y_train))
+    # print(svm.score(app_vec_tst, y_test))
 
-    meta_tr = pd.read_csv(os.path.join(utils.PROC_DIR, 'meta_tr.csv'), index_col=0)
-    meta_tst = pd.read_csv(os.path.join(utils.PROC_DIR, 'meta_tst.csv'), index_col=0)
+class MyCorpus(object):
+    """An interator that yields sentences (lists of str)."""
+    def __init__(self, corpus_path):
+        self.lines = open(corpus_path).readlines()
+        # if test_corpus_path is not None:
+        #     self.lines += open(test_corpus_path).readlines()  # !!! Test
 
-    y_train = meta_tr.label == 'class1'
-    y_test = meta_tst.label == 'class1'
-    app_vec = np.array([model.wv[f'app_{i}'] for i in range(len(meta_tr))])
-    app_vec_tst = np.array([model.wv[f'app_{i}'] for i in range(len(meta_tr), len(meta_tr) + len(meta_tst))])
+    def __iter__(self):
+        for line in tqdm(self.lines):
+            # assume there's one document per line, tokens separated by whitespace
+            yield line.strip().split(' ')
 
-    from sklearn.svm import SVC
-    svm = SVC(kernel='rbf', C=10, gamma=0.1)
-    svm.fit(app_vec, y_train)
-    print(svm.score(app_vec, y_train))
-    print(svm.score(app_vec_tst, y_test))
+class Net(nn.Module):
+    def __init__(self, n_features):
+        super(Net, self).__init__()
+        self.classifier = nn.Sequential(
+            nn.Linear(n_features, 512),
+            nn.LeakyReLU(inplace=True),
+            nn.Dropout(0.2),
+            nn.Linear(512, 512),
+            nn.LeakyReLU(inplace=True),
+            nn.Linear(512,1)
+        )
+    def forward(self, x):
+        return torch.sigmoid(self.classifier(x))
+
+def calculate_accuracy(y_true, y_pred):
+    predicted = y_pred.ge(.5).view(-1)
+    return (y_true == predicted).sum().float() / len(y_true)
+
+def round_tensor(t, decimal_places=3):
+    return round(t.item(), decimal_places)
