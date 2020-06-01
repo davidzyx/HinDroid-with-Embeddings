@@ -24,8 +24,12 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 
 class Node2Vec():
-    def __init__(self, outdir, n=1, p=2, q=1, walk_length=100, test=False, test_offset=0):
+    def __init__(self, indir, n=1, p=2, q=1, walk_length=100, test=False, test_offset=0):
         self.offset = test_offset
+
+        outdir = os.path.join(indir, 'walks')
+        if not os.path.exists(outdir):
+            os.mkdir(outdir)
 
         fp = os.path.join(
             outdir, f'node2vec_n={n}_p={p}_q={q}_wl={walk_length}.cor'
@@ -418,12 +422,8 @@ if __name__ == '__main__':
 
 
 def node2vec_main():
-    indirs = 'data/processed/'
-    outdir = os.path.join(indir, 'walks')
-    if not os.path.exists(outdir):
-        os.mkdir(outdir)
-
-    n2v = Node2Vec(outdir, n=15, p=2, q=1, walk_length=60)
+    
+    n2v = Node2Vec(n=15, p=2, q=1, walk_length=60)
     n2v.load_matrix()
     n2v.save_corpus()
     n2v.create_model()
