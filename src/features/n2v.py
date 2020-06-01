@@ -423,7 +423,8 @@ if __name__ == '__main__':
 
 def node2vec_main():
     
-    n2v = Node2Vec(n=15, p=2, q=1, walk_length=60)
+    indir = 'data/processed/'
+    n2v = Node2Vec(indir, n=15, p=2, q=1, walk_length=60)
     n2v.load_matrix()
     n2v.save_corpus()
     n2v.create_model()
