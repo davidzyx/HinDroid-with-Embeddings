@@ -145,7 +145,7 @@ Let's take a look at the different accuracies for the original HinDroid approach
 
 From our initial testing, all of our proposed graph embedding techniques are able to achieve similar accuracy and metrics scores. Although it does not seem that the different graph embeddings obtained a higher accuracy score, we believe that using these other graph embedding techniques not only matches with the results of HinDroid, but are also more robust in the sense that hackers are not able easily rearrange APIs to avoid detection.  
 
-There is definitely further research to do. One being where dummy nodes are added. This will provide us with more evidence of the robustness of the different graph techniques used. Also, we should test out several more different metap-paths. We can test which meta-paths work the best and why it works.
+There is definitely further research to do. One being where dummy nodes are added. This will provide us with more evidence of the robustness of the different graph techniques used. The clusters that are present in the visualizations are suggestive of further analysis. Also, we should test out several more different meta-paths. We can test which meta-paths work the best and investigate why it works. We could also do concatenation of embeddings from different meta-paths to form a longer representation and test its effectiveness. 
 
 ## References
 
