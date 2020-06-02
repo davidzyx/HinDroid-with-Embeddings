@@ -107,8 +107,22 @@ In node2vec, the entire Heterogeneous Information Network is regarded as an larg
 
 Metapath2Vec is used as a technique of sampling our next node. We sample our next node using equation (1). Let's use an example to illustrate the process.
 
-Imagine that we have these matrices set up, and our defined metapath is **ABA**. Our metapath-chosen sentence will look like "app_A API_Y API_Z app_B".
+Imagine that we have these matrices set up, and our defined metapath is **ABA**. Our metapath-chosen sentence will look like "app_A API_Y API_Z app_B". An sample matrix looks something like the following:  
 ![Matrices](https://i.imgur.com/XIYFrc3.png)
+
+Simplified steps:
+
+1. Pick an app. This will replace app_A.
+2. Go to the matrix corresponding to the metapath. For example, the first path in **ABA** is A, so we will look at the A matrix.
+3. Go to the row corresponding to the app or API that was chosen.
+4. Pick an API. Within a row, the APIs that have a value of 1 is picked using a uniform probability.
+5. Repeat 2, 3, and 4 until you are ready to pick an app (app_B). With the API that was chosen (API_Z), look at the column and pick an app that has value 1 with uniform probaility.
+
+![ABA](https://i.imgur.com/8N8IeYi.png)
+![ABPBPBBPA](https://i.imgur.com/Wi5C3KW.png)
+![ABABBABBBABBBBABBBBBA](https://i.imgur.com/etgIVjM.png)
+
+<!-- ![Matrices](https://i.imgur.com/XIYFrc3.png)
 
 Steps:
 
@@ -119,7 +133,7 @@ Steps:
 3. Now out path moves on to **B**. We go to the **B** matrix and look at the row for API_2. We see that we can either choose API_1 or API_2. They both will have a probability of 0.5 of getting chosen. Let's suppose we choose API_1.  
 ![api-2](https://i.imgur.com/lwWLAg8.png)
 4. Our path moves to the last spot in the metapath, which is **A**. We go back to our A matrix. Look at the column for API_1, and we see that we are able to choose either app_0 or app_1. Suppose we choose app_1. Our resulting sentence would look like the following.  
-![final path](https://i.imgur.com/iGzXhfW.png)
+![final path](https://i.imgur.com/iGzXhfW.png) -->
 
 ## Results
 
