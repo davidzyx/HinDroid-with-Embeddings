@@ -68,9 +68,15 @@ Data was extracted from APKs downloaded from APKPure.com, and the smali code was
 
 ## Embedding Techniques Explored
 
+As we are using NLP approaches such as word2vec which cannot be directly applied to application source code and matrices from HinDroid, our data ingestion pipeline generates text corpus by traversing the graphs following an user defined metapaths and the length of a random walk. Using a metapath `ABPBA` with random walk length 5000, the text corpus may look like 
+
+`app_3 -> api_500 -> api_321 -> api_234 -> api_578 -> app_321 -> api_123…`
+
+where each token represents an application or api node and the neighbouring tokens are
+connected by edges in the graph.
+
 ### Word2Vec
 
-As Word2Vec cannot be directly applied to application source code and matrices from HinDroid, our data ingestion pipeline generates text corpus by traversing the graphs following an user defined metapaths and the length of a random walk. 
 <!-- Using a metapath `ABPBA` with random walk length 5000, the text corpus may look like 
 
 `app_3 -> api_500 -> api_321 -> api_234 -> api_578 -> app_321 -> api_123…`
@@ -93,11 +99,13 @@ To evaluate the effectiveness of the generated embeddings, we visualize the embe
 ![APBPA](https://i.imgur.com/NZq0zxO.png) -->
 
 <!-- The graph shows promising results and the clusters are separated nicely between benign and malware applications.  -->
-As word2vec does not generate embeddings for unseen words, test applications in our case, we trained a decision tree regressor using the true embeddings for training application as the labels, and the average of the embeddings of each application’s associated api as the training data. Using this regressor we are able to generate embeddings for test applications using its associated api appear in the training corpus.
+As word2vec does not generate embeddings for unseen words, test applications in our case, we trained a decision tree regressor using the true embeddings for training application as the labels, and the average of all the embeddings of each application’s associated api as the training data. Using this regressor we are able to generate embeddings for test applications using its associated api appear in the training corpus.
 
 ### Node2Vec
 
 In node2vec, the entire Heterogeneous Information Network is regarded as an large homogeneous graph and the only theoretical difference to the word2vec approach is the random walk procedure. The graph traversal method is based on a graph where all different types of edges are merged together to be one. This change is adapting to the inability of node2vec to traverse according to a metapath but instead a truly random walk with no specific rules restricting where the next node would be. We choose a return parameter of 2 and a in-out parameter of 1 empirically to perform walks beginning on each app node for 100 times. This results in a corpus similar to the word2vec approach, so we could use the same methodology to match and predict different distributions of app and API embeddings.
+
+As node2vec also does not generate embeddings for test appication, we use the similar approach to generate the embeddings for test application using associated API embeddings.
 
 ![node2vec](https://i.imgur.com/auK5rqj.png)
 
@@ -139,7 +147,7 @@ Steps:
 
 Let's take a look at the different accuracies for the original HinDroid approach and the HinDroid approach with additional embedding techniques.
 
-HinDroid:
+**HinDroid:**
 
 | metapath | train_acc | test_acc | F1     | TP    | FP   | TN    | FN   |
 |----------|-----------|----------|--------|-------|------|-------|------|
@@ -148,7 +156,7 @@ HinDroid:
 | ABA      | 0.9149    | 0.8558   | 0.8671 | 147   | 27   | 130   | 19   |
 | APBPA    | 0.9040    | 0.8339   | 0.8408 | 140   | 32   | 126   | 22   |
 
-Reduced:
+**Reduced:**
 
 | metapath | train_acc | test_acc | F1     | TP    | FP   | TN    | FN   |
 |----------|-----------|----------|--------|-------|------|-------|------|
@@ -157,7 +165,16 @@ Reduced:
 | ABA      | 0.9149    | 0.8558   | 0.8671 | 147   | 27   | 130   | 19   |
 | APBPA    | 0.9040    | 0.8339   | 0.8408 | 140   | 32   | 126   | 22   |
 
-Metapath2Vec:
+**Word2Vec**
+
+| Path  | Accuracy | F1     | TN  | FP | FN | TP  |
+|-------|----------|--------|-----|----|----|-----|
+| ABA   | 95.06%   | 95.02% | 639 | 32 | 34 | 630 |
+| ABPBA | 94.61%   | 94.59% | 634 | 37 | 35 | 629 |
+| APA   | 95.73%   | 95.68% | 647 | 24 | 33 | 631 |
+| APBPA | 94.61%   | 94.55% | 638 | 33 | 39 | 625 |
+
+**Metapath2Vec:**
 
 | metapath              | train_acc | test_acc | F1     | TP    | FP   | TN    | FN   |
 |-----------------------|-----------|----------|--------|-------|------|-------|------|
@@ -168,10 +185,6 @@ Metapath2Vec:
 | ABPBA                 | 0.9982    | 0.9524   | 0.9524 | 614   | 10   | 661   | 50   |
 | ABPBPBBPA             | 0.9973    | 0.9476   | 0.9455 | 607   | 13   | 658   | 57   |
 | ABABBABBBABBBBABBBBBA | 0.9545    | 0.9026   | 0.9027 | 603   | 69   | 602   | 61   |
-
-### Class Labels Separation
-
-![Labels](https://i.imgur.com/cdFOD6m.jpg)
 
 ## Conclusion
 
