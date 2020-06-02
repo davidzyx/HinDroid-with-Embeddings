@@ -12,7 +12,7 @@ Docker image on Docker Hub:
 
 On Datahub, create a pod using a custom image with 4 CPU and 32 GB of memory. If you use another configuration, use at least 6GB memory per CPU.
 ```bash
-launch.sh -i davidzz/hindroid-xl -c 4 -m 24
+launch.sh -i davidzz/hindroid-xl -c 4 -m 32
 ```
 
 Modify the config file located in `config/data-params.json`. If you want to run a test drive, use `config/test-params.json`. Put either `data` or `test` as the first argument.
@@ -27,7 +27,7 @@ python run.py data ingest process model
 ## System Prerequisites and Definitions
 
 - APK - Executable file for Android
-![executables](https://i.imgur.com/RrGNIoG.png)
+<!-- ![executables](https://i.imgur.com/RrGNIoG.png) -->
 - Smali code - Human readable code decompiled from Dalvik bytecode contained the APK
 - Heterogeneous Information Network (HIN) - A graph where its nodes may not be of the same type
 - API Extraction
@@ -35,6 +35,17 @@ python run.py data ingest process model
   - API calls and method blocks
 ![api](https://i.imgur.com/nx3rKKv.png)
 
+## HinDroid Efficiency Improvements
+
+In HinDroid, the amount of APIs that are used in the final gram matrix calculations can have dimension of several millions. Even in sparse format, these matrices take up huge computational resources for calculation. We are able to reduce the number of API used in HinDroid to 1000 APIs while retaining the same level of accuracy. Both the time and space complexity for training and inference can be improved by a few orders of magnitude. We achieve this by selecting the top important (larger absolute coefficients) APIs (words) from fitting a logistic regression on each app (document) after applying BM25 extraction on the counts of each API for each app.
+
+| Method            | # of Apps | # of APIs used | RAM used | train+test time |
+|-------------------|-----------|----------------|----------|-----------------|
+| HinDroid-original | 1670      | 2024313        | 68GB     | 3h29m41s        |
+| HinDroid-reduced  | 1670      | 1000           | 0.3GB    | 20s             |
+
+
+<!-- 
 ## HinDroid
 
 Our project is an improvement and exploration of different embedding techniques based on a previous paper - HinDroid. Therefore, some techniques and basic data structures are based on what HinDroid outlined, such as how data was extracted and structured.
@@ -53,23 +64,25 @@ Data was extracted from APKs downloaded from APKPure.com, and the smali code was
 
 **C** matrix tells us information about whether APIs are in the same package. If API_1 and API_2 are in the same package then the corresponding spot in the matrix will have 1, else it will have 0.
 
-![C matrix](https://i.imgur.com/X9n40VE.png)
+![C matrix](https://i.imgur.com/X9n40VE.png) -->
 
-## Embedding Techniques
+## Embedding Techniques Explored
 
 ### Word2Vec
 
-Word2Vec is a powerful approach to generate embeddings for words using its context in a corpus. Decades of work and research using this idea has led to state of the art models powering the technologies we are using everyday such as Siri, Google Translate, next word prediction on our smartphone keyboard and etc. If you are interested of knowing more, [this](http://jalammar.github.io/illustrated-word2vec/) great blog post provide detailed explanation with excellent graphical example. 
-
-As Word2Vec cannot be directly applied to application source code and matrices from HinDroid, our data ingestion pipeline generates text corpus by traversing the graphs following an user defined metapaths and the length of a random walk. Using a metapath `ABPBA` with random walk length 5000, the text corpus may look like 
+As Word2Vec cannot be directly applied to application source code and matrices from HinDroid, our data ingestion pipeline generates text corpus by traversing the graphs following an user defined metapaths and the length of a random walk. 
+<!-- Using a metapath `ABPBA` with random walk length 5000, the text corpus may look like 
 
 `app_3 -> api_500 -> api_321 -> api_234 -> api_578 -> app_321 -> api_123…`
 
 where `app_3` and `api_500` are connected by matrix A, api_500 and api_321 are connected by matrix B and so on. During each random walk, the metapath will be repeated until the length of the walk is met by randomly selecting an application or api node that is directly connected to the starting node. In the text corpus, an application node will always be followed by an api node, where an api node will be followed by an application node only if the next matrix in the metapath is matrix A. 
  
-In a graph where there are two types of nodes: application and api, Word2Vec is the first approach that we attempt to capture the relationship beyond application and apis that have a direct connection in the graph. This traditional and powerful NLP embeddings techniques helps us to learn the similarity between applications not just limited to the shared api, and also the ability to identify the clusters connection between application and api that do not always have a direct connection. Using gensim’s word2vec model, we are able to generate vector embeddings for each application and api found in the text corpus. We successfully converted decompiled Android source code into a vector of numbers for each application and this information can be easily used in a machine learning model.
- 
-To evaluate the effectiveness of the generated embeddings, we visualize the embedding clusters by applying dimensionality reduction into two dimensional vectors. The embedding visualization for metapath ABA, APA, ABPBA and APBPA are shown below:
+In a graph where there are two types of nodes: application and api, Word2Vec is the first approach that we attempt to capture the relationship beyond application and apis that have a direct connection in the graph. This traditional and powerful NLP embeddings techniques helps us to learn the similarity between applications not just limited to the shared api, and also the ability to identify the clusters connection between application and api that do not always have a direct connection. Using gensim’s word2vec model, we are able to generate vector embeddings for each application and api found in the text corpus. We successfully converted decompiled Android source code into a vector of numbers for each application and this information can be easily used in a machine learning model. -->
+
+To evaluate the effectiveness of the generated embeddings, we visualize the embedding clusters by applying dimensionality reduction into two dimensional vectors. The embedding visualization for metapath APA is shown below:
+
+![APA](https://i.imgur.com/TnPyamV.png)
+<!-- The embedding visualization for metapath ABA, APA, ABPBA and APBPA are shown below:
 
 ![ABA](https://i.imgur.com/a6DBPmO.png)
 
@@ -77,11 +90,16 @@ To evaluate the effectiveness of the generated embeddings, we visualize the embe
 
 ![APA](https://i.imgur.com/TnPyamV.png)
 
-![APBPA](https://i.imgur.com/NZq0zxO.png)
+![APBPA](https://i.imgur.com/NZq0zxO.png) -->
 
-The graph shows promising results and the clusters are separated nicely between benign and malware applications. As word2vec does not generate embeddings for unseen words, test applications in our case, we trained a decision tree regressor using the true embeddings for training application as the labels, and the average of the embeddings of each application’s associated api as the training data. Using this regressor we are able to generate embeddings for test applications using its associated api appear in the training corpus.
+<!-- The graph shows promising results and the clusters are separated nicely between benign and malware applications.  -->
+As word2vec does not generate embeddings for unseen words, test applications in our case, we trained a decision tree regressor using the true embeddings for training application as the labels, and the average of the embeddings of each application’s associated api as the training data. Using this regressor we are able to generate embeddings for test applications using its associated api appear in the training corpus.
 
 ### Node2Vec
+
+In node2vec, the entire Heterogeneous Information Network is regarded as an large homogeneous graph and the only theoretical difference to the word2vec approach is the random walk procedure. The graph traversal method is based on a graph where all different types of edges are merged together to be one. This change is adapting to the inability of node2vec to traverse according to a metapath but instead a truly random walk with no specific rules restricting where the next node would be. We choose a return parameter of 2 and a in-out parameter of 1 empirically to perform walks beginning on each app node for 100 times. This results in a corpus similar to the word2vec approach, so we could use the same methodology to match and predict different distributions of app and API embeddings.
+
+![node2vec](https://i.imgur.com/auK5rqj.png)
 
 ### Metapath2Vec
 
