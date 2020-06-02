@@ -27,7 +27,6 @@ python run.py data ingest process model
 ## System Prerequisites and Definitions
 
 - APK - Executable file for Android
-<!-- ![executables](https://i.imgur.com/RrGNIoG.png) -->
 - Smali code - Human readable code decompiled from Dalvik bytecode contained the APK
 - Heterogeneous Information Network (HIN) - A graph where its nodes may not be of the same type
 - API Extraction
@@ -44,28 +43,6 @@ In HinDroid, the amount of APIs that are used in the final gram matrix calculati
 | HinDroid-original | 1670      | 2024313        | 68GB     | 3h29m41s        |
 | HinDroid-reduced  | 1670      | 1000           | 0.3GB    | 20s             |
 
-
-<!-- 
-## HinDroid
-
-Our project is an improvement and exploration of different embedding techniques based on a previous paper - HinDroid. Therefore, some techniques and basic data structures are based on what HinDroid outlined, such as how data was extracted and structured.
-
-Data was extracted from APKs downloaded from APKPure.com, and the smali code was extracted by using APKTool to reverse engineer the APKs.
-
-3 matrices were borrowed from HinDroid: A, B, and P matrix. Below you will see a description for each matrix and an example.
-
-**A** matrix tells us information about whether APIs are within the same app. Each API within an app will have 1, else it will have 0.
-
-![A matrix](https://i.imgur.com/fGIEH9c.png)
-
-**B** matrix tells us information about whether APIs are in the same code block. If API_1 and API_2 are in the same code block then the corresponding spot in the matrix will have 1, else it will have 0.
-
-![B matrix](https://i.imgur.com/5MJL9ff.png)
-
-**C** matrix tells us information about whether APIs are in the same package. If API_1 and API_2 are in the same package then the corresponding spot in the matrix will have 1, else it will have 0.
-
-![C matrix](https://i.imgur.com/X9n40VE.png) -->
-
 ## Embedding Techniques Explored
 
 As we are using NLP approaches such as word2vec which cannot be directly applied to application source code and matrices from HinDroid, our data ingestion pipeline generates text corpus by traversing the graphs following an user defined metapaths and the length of a random walk. Using a metapath `ABPBA` with random walk length 5000, the text corpus may look like 
@@ -77,28 +54,12 @@ connected by edges in the graph.
 
 ### Word2Vec
 
-<!-- Using a metapath `ABPBA` with random walk length 5000, the text corpus may look like 
-
-`app_3 -> api_500 -> api_321 -> api_234 -> api_578 -> app_321 -> api_123…`
-
-where `app_3` and `api_500` are connected by matrix A, api_500 and api_321 are connected by matrix B and so on. During each random walk, the metapath will be repeated until the length of the walk is met by randomly selecting an application or api node that is directly connected to the starting node. In the text corpus, an application node will always be followed by an api node, where an api node will be followed by an application node only if the next matrix in the metapath is matrix A. 
- 
-In a graph where there are two types of nodes: application and api, Word2Vec is the first approach that we attempt to capture the relationship beyond application and apis that have a direct connection in the graph. This traditional and powerful NLP embeddings techniques helps us to learn the similarity between applications not just limited to the shared api, and also the ability to identify the clusters connection between application and api that do not always have a direct connection. Using gensim’s word2vec model, we are able to generate vector embeddings for each application and api found in the text corpus. We successfully converted decompiled Android source code into a vector of numbers for each application and this information can be easily used in a machine learning model. -->
+In a graph where there are two types of nodes: application and api, Word2Vec is the first approach that we attempt to capture the relationship beyond application and apis that have a direct connection in the graph. This traditional and powerful NLP embeddings techniques helps us to learn the similarity between applications not just limited to the shared api, and also the ability to identify the clusters connection between application and api that do not always have a direct connection. Using gensim’s word2vec model, we are able to generate vector embeddings for each application and api found in the text corpus. We successfully converted decompiled Android source code into a vector of numbers for each application and this information can be easily used in a machine learning model.
 
 To evaluate the effectiveness of the generated embeddings, we visualize the embedding clusters by applying dimensionality reduction into two dimensional vectors. The embedding visualization for metapath APA is shown below:
 
 ![APA](https://i.imgur.com/TnPyamV.png)
-<!-- The embedding visualization for metapath ABA, APA, ABPBA and APBPA are shown below:
 
-![ABA](https://i.imgur.com/a6DBPmO.png)
-
-![ABPBA](https://i.imgur.com/4lW3npg.png)
-
-![APA](https://i.imgur.com/TnPyamV.png)
-
-![APBPA](https://i.imgur.com/NZq0zxO.png) -->
-
-<!-- The graph shows promising results and the clusters are separated nicely between benign and malware applications.  -->
 As word2vec does not generate embeddings for unseen words, test applications in our case, we trained a decision tree regressor using the true embeddings for training application as the labels, and the average of all the embeddings of each application’s associated api as the training data. Using this regressor we are able to generate embeddings for test applications using its associated api appear in the training corpus.
 
 ### Node2Vec
@@ -130,18 +91,6 @@ Simplified steps:
 ![ABPBPBBPA](https://i.imgur.com/Wi5C3KW.png)
 ![ABABBABBBABBBBABBBBBA](https://i.imgur.com/etgIVjM.png)
 
-<!-- ![Matrices](https://i.imgur.com/XIYFrc3.png)
-
-Steps:
-
-1. We choose an app. In this case there are only two apps. Suppose we choose app_0.  
-![app_0](https://i.imgur.com/xWePMRv.png)
-2. Our first path in out metapath is **A**. So, now we will look in the **A** matrix and the row for app_0. We see that app_0 contains API_1 and API_2. Therefore we will sample API_1 and API_2 with a uniform probability, where each API has a probability of 0.5 of getting chosen. Let's suppose we choose API_2.  
-![api-1](https://i.imgur.com/uFUIrQ3.png)
-3. Now out path moves on to **B**. We go to the **B** matrix and look at the row for API_2. We see that we can either choose API_1 or API_2. They both will have a probability of 0.5 of getting chosen. Let's suppose we choose API_1.  
-![api-2](https://i.imgur.com/lwWLAg8.png)
-4. Our path moves to the last spot in the metapath, which is **A**. We go back to our A matrix. Look at the column for API_1, and we see that we are able to choose either app_0 or app_1. Suppose we choose app_1. Our resulting sentence would look like the following.  
-![final path](https://i.imgur.com/iGzXhfW.png) -->
 
 ## Results
 
@@ -149,7 +98,7 @@ Let's take a look at the different accuracies for the original HinDroid approach
 
 **HinDroid:**
 
-| metapath | train_acc | test_acc | F1     | TP    | FP   | TN    | FN   |
+| Metapath | train_acc | test_acc | F1     | TP    | FP   | TN    | FN   |
 |----------|-----------|----------|--------|-------|------|-------|------|
 | AA       | 1.0000    | 0.9561   | 0.9562 | 158   | 10   | 147   | 4    |
 | APA      | 1.0000    | 0.9373   | 0.9412 | 155   | 14   | 145   | 6    |
@@ -158,7 +107,7 @@ Let's take a look at the different accuracies for the original HinDroid approach
 
 **Reduced:**
 
-| metapath | train_acc | test_acc | F1     | TP    | FP   | TN    | FN   |
+| Metapath | train_acc | test_acc | F1     | TP    | FP   | TN    | FN   |
 |----------|-----------|----------|--------|-------|------|-------|------|
 | AA       | 1.0000    | 0.9561   | 0.9562 | 158   | 10   | 147   | 4    |
 | APA      | 1.0000    | 0.9373   | 0.9412 | 155   | 14   | 145   | 6    |
@@ -167,16 +116,22 @@ Let's take a look at the different accuracies for the original HinDroid approach
 
 **Word2Vec**
 
-| Path  | Accuracy | F1     | TN  | FP | FN | TP  |
-|-------|----------|--------|-----|----|----|-----|
-| ABA   | 95.06%   | 95.02% | 639 | 32 | 34 | 630 |
-| ABPBA | 94.61%   | 94.59% | 634 | 37 | 35 | 629 |
-| APA   | 95.73%   | 95.68% | 647 | 24 | 33 | 631 |
-| APBPA | 94.61%   | 94.55% | 638 | 33 | 39 | 625 |
+| Metapath  | Accuracy | F1     | TN  | FP | FN | TP  |
+|-----------|----------|--------|-----|----|----|-----|
+| ABA       | 95.06%   | 95.02% | 639 | 32 | 34 | 630 |
+| ABPBA     | 94.61%   | 94.59% | 634 | 37 | 35 | 629 |
+| APA       | 95.73%   | 95.68% | 647 | 24 | 33 | 631 |
+| APBPA     | 94.61%   | 94.55% | 638 | 33 | 39 | 625 |
+
+**Node2Vec**
+
+| Metapath  | Accuracy | F1     | TN  | FP | FN | TP  |
+|-----------|----------|--------|-----|----|----|-----|
+| N/A       | 97.75%   | 97.77% | 648 | 18 | 12 | 657 |
 
 **Metapath2Vec:**
 
-| metapath              | train_acc | test_acc | F1     | TP    | FP   | TN    | FN   |
+| Metapath              | train_acc | test_acc | F1     | TP    | FP   | TN    | FN   |
 |-----------------------|-----------|----------|--------|-------|------|-------|------|
 | AA                    | 0.9736    | 0.9476   | 0.9466 | 621   | 27   | 644   | 43   |
 | APA                   | 0.9955    | 0.9296   | 0.9277 | 603   | 33   | 638   | 61   |
