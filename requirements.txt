@@ -5,3 +5,5 @@ lxml
 scipy
 pathos
 p_tqdm
+plotly
+mklaren
