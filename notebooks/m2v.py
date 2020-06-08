@@ -11,13 +11,13 @@ import pandas as pd
 import random
 import collections
 
-import logging
-logger = logging.getLogger('debug')
-hdlr = logging.FileHandler('./debug.log', mode='w')
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-hdlr.setFormatter(formatter)
-logger.addHandler(hdlr) 
-logger.setLevel(logging.INFO)
+# import logging
+# logger = logging.getLogger('debug')
+# hdlr = logging.FileHandler('./debug.log', mode='w')
+# formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+# hdlr.setFormatter(formatter)
+# logger.addHandler(hdlr) 
+# logger.setLevel(logging.INFO)
 
 class Metapath2Vec():
     def __init__(self, A_tr, B_tr, P_tr):
@@ -44,7 +44,7 @@ class Metapath2Vec():
         '''
         Find the next app using matrix A given api
         '''
-        logger.info('next_index: ' + str(next_index))
+#         logger.info('next_index: ' + str(next_index))
         row = self.A_tr_csc[:, next_index]
         next_index = random.choice(np.nonzero(row)[0])
         path.append('app_%d'%next_index)
@@ -79,24 +79,24 @@ class Metapath2Vec():
                     next_index = self.B_api(next_index, path)
                 if(i == 'P'):
                     next_index = self.P_api(next_index, path)   
-            logger.info(path)
-            logger.info(isinstance(path, collections.Iterable))
+#             logger.info(path)
+#             logger.info(isinstance(path, collections.Iterable))
             return path
         except:
-            logger.info('rerun')
+#             logger.info('rerun')
             return self.metapath2vec(metapaths, appNumber)
         
-    def create_corpus(self, meta, suffix=''):
-        fp = '/datasets/dsc180a-wi20-public/Malware/group_data/group_01/metapath_corpus'
+    def create_corpus(self, meta, save_fp, suffix=''):
+#         fp = '/datasets/dsc180a-wi20-public/Malware/group_data/group_01/metapath_corpus'
         corpus_name = 'meta_%s%s.cor'%(meta, suffix)
         metapaths = list('%s'%meta)
 
-        f = open(os.path.join(fp, corpus_name), "w")
+        f = open(os.path.join(save_fp, corpus_name), "w")
 
         for appNum in range(self.A_tr_csr.shape[0]):
         #     logger.info(appNum)
             for times in range(1000):
-                logger.info(times)
+#                 logger.info(times)
                 path = []
                 f.write(' '.join(self.metapath2vec(metapaths, appNum)) + '\n')    
         f.close()

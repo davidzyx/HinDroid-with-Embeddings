@@ -6,6 +6,13 @@ import pandas as pd
 import numpy as np
 import os
 from sklearn.metrics import confusion_matrix
+
+from sklearn.manifold import TSNE                   # final reduction
+from plotly.offline import init_notebook_mode, iplot, plot
+import plotly.graph_objs as go
+from plotly import tools
+import plotly.express as px
+
     
 A_shape = 1335
     
@@ -33,14 +40,16 @@ def check_tst_file(CORPUS_TEST):
         print('changed')
         return
     
-def prediction(metapath, reduced=False):
-    fp = '/datasets/dsc180a-wi20-public/Malware/group_data/group_01/metapath_corpus'
+def prediction(metapath, meta_fp, labels_fp, reduced=False):
     if(not reduced):
-        CORPUS = os.path.join(fp, 'meta_%s.cor'%metapath)
-        CORPUS_TEST = os.path.join(fp, 'meta_%s_tst.cor'%metapath)
+        CORPUS = os.path.join(meta_fp, 'meta_%s.cor'%metapath)
+        CORPUS_TEST = os.path.join(meta_fp, 'meta_%s_tst.cor'%metapath)
+        graph_title = metapath + " two dimensional embeddings"
     else:
-        CORPUS = os.path.join(fp, 'meta_%s_reduced.cor'%metapath)
-        CORPUS_TEST = os.path.join(fp, 'meta_%s_reduced_tst.cor'%metapath)
+        CORPUS = os.path.join(meta_fp, 'meta_%s_reduced.cor'%metapath)
+        CORPUS_TEST = os.path.join(meta_fp, 'meta_%s_reduced_tst.cor'%metapath)
+        graph_title = metapath + "reduced two dimensional embeddings"
+
     print(CORPUS, CORPUS_TEST)
     check_tst_file(CORPUS_TEST)
     
@@ -65,9 +74,9 @@ def prediction(metapath, reduced=False):
     WINDOW = len(metapath) // 2
     model = gensim.models.Word2Vec(sentences=sentences, min_count=10, size=500, window=WINDOW)
     
-    path = '/datasets/dsc180a-wi20-public/Malware/group_data/group_01/pipeline_output'
-    meta_tr = pd.read_csv(os.path.join(path, 'meta_tr.csv'), index_col=0)
-    meta_tst = pd.read_csv(os.path.join(path, 'meta_tst.csv'), index_col=0)
+#     path = '/datasets/dsc180a-wi20-public/Malware/group_data/group_01/pipeline_output'
+    meta_tr = pd.read_csv(os.path.join(labels_fp, 'meta_tr.csv'), index_col=0)
+    meta_tst = pd.read_csv(os.path.join(labels_fp, 'meta_tst.csv'), index_col=0)
 
     y_train = meta_tr.label == 'class1'
     y_val = y_train[1100:]
@@ -101,6 +110,72 @@ def prediction(metapath, reduced=False):
     tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
     print('tn', 'fp', 'fn', 'tp')
     print(tn, fp, fn, tp)
+    
+    # Graph predictions
+    x_vals, y_vals, labels = reduce_dimensions(model)    
+    df_dict = {'x_vals': x_vals, 'y_vals': y_vals, 'labels': labels}
+    df = pd.DataFrame(df_dict)
+    graph_labels = {0: 'train_benign', 1: 'train_malware', 2: 'test_benign', 3: 'test_malware'}
+    df = df.replace({"labels": graph_labels})
+    plot_with_plotly(df, graph_title)
+    
     print('')
+    
+    
     return model, y_train, y_test, app_vec, app_vec_tst, y_pred, svm
+
+def reduce_dimensions(model):
+    num_dimensions = 2  # final num dimensions (2D, 3D, etc)
+
+    vectors = []  # positions in vector space
+    labels = []  # keep track of words to label our data again later
+    for word in model.wv.vocab:
+        if 'app' in word:
+#             labels.append(label_classifier(int(word.split('_')[1])))
+
+            vectors.append(model.wv[word])
+            labels.append(word)
+
+    # convert both lists into numpy vectors for reduction
+    vectors = np.asarray(vectors)
+    labels = np.asarray(labels)
+
+    # reduce using t-SNE
+    vectors = np.asarray(vectors)
+    tsne = TSNE(n_components=num_dimensions, random_state=0)
+    vectors = tsne.fit_transform(vectors)
+
+    x_vals = [v[0] for v in vectors]
+    y_vals = [v[1] for v in vectors]
+    return x_vals, y_vals, [label_classifier(i) for i in labels]
+
+
+def plot_with_plotly(df, graph_title='Graph'):
+    
+    fig = px.scatter(df, x="x_vals", y="y_vals", color='labels', title=graph_title)
+    fig.show()
+#     data = [trace]
+
+#     if plot_in_notebook:
+#         init_notebook_mode(connected=True)
+#         iplot(data, filename='word-embedding-plot')
+#     else:
+#         plot(data, filename='word-embedding-plot.html')
+
+def label_classifier(app_number):
+    labels_fp = '/datasets/dsc180a-wi20-public/Malware/group_data/group_01/pipeline_output_new'
+    meta_tr = pd.read_csv(os.path.join(labels_fp, 'meta_tr.csv'), index_col=0)
+    meta_tst = pd.read_csv(os.path.join(labels_fp, 'meta_tst.csv'), index_col=0)
+    
+    number = int(app_number.split('_')[1])
+    if number > 1335 - 1:
+        if meta_tst.loc[app_number]['label'] == 'class1':
+            return 3  #test_malware
+        else:
+            return 2  #test_benign
+    else:
+        if meta_tr.loc[app_number]['label'] == 'class1':
+            return 1 #train_malware
+        else:
+            return 0 #train_benign
     
