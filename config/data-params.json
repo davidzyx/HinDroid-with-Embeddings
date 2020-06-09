@@ -30,5 +30,6 @@
     },
     "hindroid_reduced": true,
     "node2vec_epoch": 7000,
-    "word2vec_epoch": 100
+    "word2vec_epoch": 100,
+    "metapath2vec":100
 }

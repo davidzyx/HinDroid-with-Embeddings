@@ -10,6 +10,9 @@ import numpy as np
 import pandas as pd
 import random
 import collections
+import src.features.metaPrediction as mp
+
+import src.utils as utils
 
 # import logging
 # logger = logging.getLogger('debug')
@@ -86,7 +89,7 @@ class Metapath2Vec():
 #             logger.info('rerun')
             return self.metapath2vec(metapaths, appNumber)
         
-    def create_corpus(self, meta, save_fp, suffix=''):
+    def create_corpus(self, meta, save_fp, metapath2vec_epoch, suffix=''):
 #         fp = '/datasets/dsc180a-wi20-public/Malware/group_data/group_01/metapath_corpus'
         corpus_name = 'meta_%s%s.cor'%(meta, suffix)
         metapaths = list('%s'%meta)
@@ -95,8 +98,33 @@ class Metapath2Vec():
 
         for appNum in range(self.A_tr_csr.shape[0]):
         #     logger.info(appNum)
-            for times in range(1000):
+            for times in range(metapath2vec_epoch):
 #                 logger.info(times)
                 path = []
                 f.write(' '.join(self.metapath2vec(metapaths, appNum)) + '\n')    
         f.close()
+        
+def metapath2vec_main(**cfg):
+    path = os.path.join(cfg['data_dir'], cfg['data_subdirs']['processed'])
+    outdir = os.path.join(path, 'walks')
+    
+#     path = '/datasets/dsc180a-wi20-public/Malware/group_data/group_01/pipeline_output_new'
+    A = sparse.load_npz(os.path.join(path, 'A_reduced_tr.npz'))
+    B_tr = sparse.load_npz(os.path.join(path, 'B_reduced_tr.npz')).tocsr()
+    P_tr = sparse.load_npz(os.path.join(path, 'P_reduced_tr.npz')).tocsr()
+    model = Metapath2Vec(A, B_tr, P_tr)
+
+    save_fp = path #'/datasets/dsc180a-wi20-public/Malware/group_data/group_01/metapath_corpus_new'
+    metas = ['ABA']
+    for meta in metas:
+        model.create_corpus(meta, outdir, cfg['metapath2vec_epoch'], '_reduced')
+        
+    A_tst = sparse.load_npz(os.path.join(path, 'A_reduced_tst.npz'))
+    model = Metapath2Vec(A_tst, B_tr, P_tr)
+    for meta in metas:
+        model.create_corpus(meta, outdir, cfg['metapath2vec_epoch'], '_reduced_tst')
+
+    print('prediction')
+    mp.prediction('ABA', outdir, path, A.shape[0], True ,cfg['hindroid_reduced'])
+
+   

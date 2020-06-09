@@ -7,7 +7,8 @@ from src.features.build_features import build_features, reduce_apis
 from src.models import hindroid
 from src.features.n2v import node2vec_main
 from src.features.w2v import word2vec_main
-
+from src.features.m2v import metapath2vec_main
+import src.features.metaPrediction
 
 DATA_PARAMS = 'config/data-params.json'
 TEST_PARAMS = 'config/test-params.json'
@@ -30,6 +31,7 @@ def main(targets):
         reduce_apis()
         node2vec_main(**cfg)
         word2vec_main(**cfg)
+        metapath2vec_main(**cfg)
         return
 
     if 'data' in targets:

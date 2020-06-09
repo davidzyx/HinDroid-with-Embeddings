@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import os
 from sklearn.metrics import confusion_matrix
+from sklearn.linear_model import LogisticRegression
 
 from sklearn.manifold import TSNE                   # final reduction
 from plotly.offline import init_notebook_mode, iplot, plot
@@ -14,9 +15,8 @@ from plotly import tools
 import plotly.express as px
 
     
-A_shape = 1335
     
-def check_tst_file(CORPUS_TEST):
+def check_tst_file(CORPUS_TEST, A_shape):
     # check if the app number in the test corpus starts from 1335
     f = open(CORPUS_TEST).readlines()
     app_num = int(f[0].split()[0].split('_')[1])
@@ -26,7 +26,7 @@ def check_tst_file(CORPUS_TEST):
         for line in f:
             walk = line.strip().split(' ')
             walks.append([
-                f"app_{int(node.split('_')[-1]) + 1335}"
+                f"app_{int(node.split('_')[-1]) + A_shape}"
                 if node.startswith('app') else node
                 for node in walk
             ])
@@ -40,7 +40,7 @@ def check_tst_file(CORPUS_TEST):
         print('changed')
         return
     
-def prediction(metapath, meta_fp, labels_fp, reduced=False):
+def prediction(metapath, meta_fp, labels_fp, shape, test, reduced=False):
     if(not reduced):
         CORPUS = os.path.join(meta_fp, 'meta_%s.cor'%metapath)
         CORPUS_TEST = os.path.join(meta_fp, 'meta_%s_tst.cor'%metapath)
@@ -51,7 +51,7 @@ def prediction(metapath, meta_fp, labels_fp, reduced=False):
         graph_title = metapath + "reduced two dimensional embeddings"
 
     print(CORPUS, CORPUS_TEST)
-    check_tst_file(CORPUS_TEST)
+    check_tst_file(CORPUS_TEST, shape)
     
     from gensim import utils
     import gensim.models
@@ -77,32 +77,43 @@ def prediction(metapath, meta_fp, labels_fp, reduced=False):
 #     path = '/datasets/dsc180a-wi20-public/Malware/group_data/group_01/pipeline_output'
     meta_tr = pd.read_csv(os.path.join(labels_fp, 'meta_tr.csv'), index_col=0)
     meta_tst = pd.read_csv(os.path.join(labels_fp, 'meta_tst.csv'), index_col=0)
-
+    
+    
     y_train = meta_tr.label == 'class1'
-    y_val = y_train[1100:]
-    y_train = y_train[:1100]
+    spliter = (len(y_train)//2)
+    y_val = y_train[spliter:]
+    y_train = y_train[:spliter]
     
     y_test = meta_tst.label == 'class1'
 
     app_vec = np.array([model.wv[f'app_{i}'] for i in range(len(meta_tr))])
-    app_val = app_vec[1100:]
-    app_vec = app_vec[:1100]
+    app_val = app_vec[spliter:]
+    app_vec = app_vec[:spliter]
     app_vec_tst = np.array([model.wv[f'app_{i}'] for i in range(len(meta_tr), len(meta_tr) + len(meta_tst))])
     
     # select best parameters
-    print('Selecting best parameters...')
-    param_grid = {'C': [1,10,100,1000,10000], 'kernel': ('linear', 'poly'), 'degree': np.arange(20)+1}
-    svc = SVC(gamma='auto')
-    clf = GridSearchCV(svc, param_grid, cv=5, return_train_score=True, iid=False, n_jobs=-1)
-    best = clf.fit(app_val, y_val).best_params_
-#     best = clf.fit(app_vec, y_train).best_params_
-    print(best)
-    
-    print('Training...')
-    svm = SVC(kernel='poly', C=best['C'], degree=best['degree'], gamma='auto')
-#     svm = SVC(kernel='linear')
-    svm.fit(app_vec, y_train)
-#     svm.fit(app_val, y_val)
+    if(test):
+        y_train = meta_tr.label == 'class1'
+        y_test = meta_tst.label == 'class1'
+        app_vec = np.array([model.wv[f'app_{i}'] for i in range(len(meta_tr))])
+        app_vec_tst = np.array([model.wv[f'app_{i}'] for i in range(len(meta_tr), len(meta_tr) + len(meta_tst))])
+        svm = LogisticRegression(random_state=0)
+        svm.fit(app_vec, y_train)
+        
+    else:
+        print('Selecting best parameters...')
+        param_grid = {'C': [1,10,100,1000,10000], 'kernel': ('linear', 'poly'), 'degree': np.arange(20)+1}
+        svc = SVC(gamma='auto')
+        clf = GridSearchCV(svc, param_grid, cv=spliter+1, return_train_score=True, iid=False, n_jobs=-1)
+        best = clf.fit(app_val, y_val).best_params_
+    #     best = clf.fit(app_vec, y_train).best_params_
+        print(best)
+
+        print('Training...')
+        svm = SVC(kernel='poly', C=best['C'], degree=best['degree'], gamma='auto')
+    #     svm = SVC(kernel='linear')
+        svm.fit(app_vec, y_train)
+    #     svm.fit(app_val, y_val)
     
     y_pred = svm.predict(app_vec_tst)
     print('train_acc: ', svm.score(app_vec, y_train))
