@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 from tqdm import tqdm
+import time
 
 import src.utils as utils
 
@@ -96,6 +97,7 @@ class HinDroidNew():
         tst_pred = {}
         for path in self.metapaths:
             print(path)
+            now = time.time()
 
             print('Calculating gram matrix for train')
             if path is 'AA':
@@ -114,6 +116,9 @@ class HinDroidNew():
             print('Fitting SVM')
             svm = SVC(kernel='precomputed')
             svm.fit(gram_train, y_train)
+
+            print(time.time() - now)
+
             train_predicted = svm.predict(gram_train)
             train_acc = accuracy_score(y_train, train_predicted)
             tr_pred[path] = train_predicted
@@ -159,10 +164,20 @@ class HinDroidNew():
 
 def run(**config):
     PROC_DIR = utils.PROC_DIR
-    A_tr, A_tst, B_tr, P_tr = [
-        sparse.load_npz(os.path.join(PROC_DIR, mat))
-        for mat in ['A_tr.npz', 'A_tst.npz', 'B_tr.npz', 'P_tr.npz']
-    ]
+
+    if config['hindroid_reduced']:
+        A_tr, A_tst, B_tr, P_tr = [
+            sparse.load_npz(os.path.join(PROC_DIR, mat))
+            for mat in [
+                'A_reduced_tr.npz', 'A_reduced_tst.npz',
+                'B_reduced_tr.npz', 'P_reduced_tr.npz'
+            ]
+        ]
+    else:
+        A_tr, A_tst, B_tr, P_tr = [
+            sparse.load_npz(os.path.join(PROC_DIR, mat))
+            for mat in ['A_tr.npz', 'A_tst.npz', 'B_tr.npz', 'P_tr.npz']
+        ]
 
     meta_tr_fp = os.path.join(PROC_DIR, 'meta_tr.csv')
     meta_tst_fp = os.path.join(PROC_DIR, 'meta_tst.csv')
