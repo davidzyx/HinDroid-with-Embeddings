@@ -25,6 +25,7 @@ from sklearn.metrics import confusion_matrix
 
 class Node2Vec():
     def __init__(self, indir, n=1, p=2, q=1, walk_length=100, test=False, test_offset=0):
+        self.indir = indir
         self.offset = test_offset
 
         outdir = os.path.join(indir, 'walks')
@@ -226,8 +227,7 @@ class Node2Vec():
         return walks
 
     def load_matrix(self):
-        # indir = utils.PROC_DIR
-        indir = "../data/processed"
+        indir = self.indir
         A_tr = sparse.load_npz(os.path.join(indir, 'A_reduced_tr.npz'))
         A_tst = sparse.load_npz(os.path.join(indir, 'A_reduced_tst.npz'))
         B_tr = sparse.load_npz(os.path.join(indir, 'B_reduced_tr.npz'))
@@ -421,16 +421,15 @@ if __name__ == '__main__':
         n2v_tst.save_corpus(outdir, n=15, p=2, q=1, walk_length=60, test=True)
 
 
-def node2vec_main():
-    
-    indir = 'data/processed/'
+def node2vec_main(**cfg):
+    indir = utils.PROC_DIR
     n2v = Node2Vec(indir, n=15, p=2, q=1, walk_length=60)
     n2v.load_matrix()
     n2v.save_corpus()
     n2v.create_model()
     n2v.predict_embeddings()
     n2v.plot_embeddings()
-    n2v.train_nn(num_epoch=7000)
+    n2v.train_nn(num_epoch=cfg['node2vec_epoch'])
     n2v.evaluate()
 
     # meta_tr = pd.read_csv(os.path.join(utils.PROC_DIR, 'meta_tr.csv'), index_col=0)

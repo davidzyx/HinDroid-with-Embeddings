@@ -419,7 +419,7 @@ def cosine(u, v):
     return np.dot(u, v)/(np.linalg.norm(u)* np.linalg.norm(v))
 
 
-def word2vec_main():
+def word2vec_main(**cfg):
     matrix_path = utils.PROC_DIR
     corpus_path = os.path.join(utils.PROC_DIR, 'walks', 'word2vec_ABPBA_reduced.cor')
 
@@ -429,6 +429,6 @@ def word2vec_main():
     model.create_model()
     model.predict_embeddings()
     model.plot_embeddings()
-    model.train_nn(num_epoch=100)
+    model.train_nn(num_epoch=cfg['word2vec_epoch'])
     model.evaluate()
     model.save_result()

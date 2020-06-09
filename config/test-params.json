@@ -26,5 +26,8 @@
                 "n": 2
             }
         }
-    }
+    },
+    "hindroid_reduced": true,
+    "node2vec_epoch": 100,
+    "word2vec_epoch": 100
 }

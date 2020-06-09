@@ -28,8 +28,8 @@ def main(targets):
         get_data(**cfg)
         build_features(**cfg)
         reduce_apis()
-        node2vec_main()
-        word2vec_main()
+        node2vec_main(**cfg)
+        word2vec_main(**cfg)
         return
 
     if 'data' in targets:
@@ -57,10 +57,10 @@ def main(targets):
         reduce_apis()
 
     if 'node2vec' in targets:
-        node2vec_main()
+        node2vec_main(**cfg)
 
     if 'word2vec' in targets:
-        word2vec_main()
+        word2vec_main(**cfg)
 
     if 'model' in targets:
         hindroid.run(**cfg)
